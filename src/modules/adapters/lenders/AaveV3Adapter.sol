@@ -10,10 +10,10 @@ import {WadRayMath} from "src/libraries/WadRayMath.sol";
 import {Currency, CurrencyLibrary} from "src/types/Currency.sol";
 import {BaseLender} from "./BaseLender.sol";
 
-/// @title AaveV2Adapter
-/// @notice Provides the functionality of making calls to Aave-V2 contracts for the Client
+/// @title AaveV3Adapter
+/// @notice Provides the functionality of making calls to Aave-V3 contracts for the Client
 
-contract AaveV2Adapter is ILender, BaseLender {
+contract AaveV3Adapter is ILender, BaseLender {
 	using CurrencyLibrary for Currency;
 	using FullMath for uint256;
 	using PercentageMath for uint256;
@@ -21,15 +21,18 @@ contract AaveV2Adapter is ILender, BaseLender {
 	using WadRayMath for uint256;
 
 	uint256 internal constant BORROW_MASK					=	0x5555555555555555555555555555555555555555555555555555555555555555; // prettier-ignore
+	uint256 internal constant COLLATERAL_MASK				=	0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA; // prettier-ignore
 
-	uint256 internal constant LTV_MASK 						=	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000; // prettier-ignore
+	uint256 internal constant LTV_MASK						=	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000; // prettier-ignore
 	uint256 internal constant LIQUIDATION_THRESHOLD_MASK	=	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000FFFF; // prettier-ignore
-	uint256 internal constant DECIMALS_MASK					=	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00FFFFFFFFFFFF; // prettier-ignore
 	uint256 internal constant ACTIVE_MASK					=	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFF; // prettier-ignore
 	uint256 internal constant FROZEN_MASK					=	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFDFFFFFFFFFFFFFF; // prettier-ignore
 	uint256 internal constant BORROWING_MASK				=	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFBFFFFFFFFFFFFFF; // prettier-ignore
+	uint256 internal constant PAUSED_MASK					=	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFF; // prettier-ignore
+	uint256 internal constant DEBT_CEILING_MASK				=	0xF0000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF; // prettier-ignore
 
 	uint256 internal constant LIQUIDATION_THRESHOLD_OFFSET = 16;
+	uint256 internal constant DEBT_CEILING_OFFSET = 212;
 
 	uint256 internal constant SECONDS_PER_DAY = 86400;
 	uint256 internal constant SECONDS_PER_YEAR = 31536000;
@@ -43,14 +46,14 @@ contract AaveV2Adapter is ILender, BaseLender {
 		bytes32 _protocol,
 		address _lendingPool,
 		address _incentives,
-		address _priceOracle,
+		address _oracle,
 		address _denomination,
 		Currency _wrappedNative,
 		Currency _weth
 	) BaseLender(_resolver, _protocol, _denomination, _wrappedNative, _weth) {
 		LENDING_POOL = _lendingPool;
 		INCENTIVES = _incentives;
-		PRICE_ORACLE = _priceOracle;
+		PRICE_ORACLE = _oracle;
 	}
 
 	function supply(
@@ -65,7 +68,7 @@ contract AaveV2Adapter is ILender, BaseLender {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
-			mstore(ptr, 0xe8eda9df00000000000000000000000000000000000000000000000000000000) // deposit(address,uint256,address,uint16)
+			mstore(ptr, 0x617ba03700000000000000000000000000000000000000000000000000000000) // supply(address,uint256,address,uint16)
 			mstore(add(ptr, 0x04), and(asset, 0xffffffffffffffffffffffffffffffffffffffff))
 			mstore(add(ptr, 0x24), amount)
 			mstore(add(ptr, 0x44), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
@@ -77,7 +80,7 @@ contract AaveV2Adapter is ILender, BaseLender {
 			}
 		}
 
-		(, liquidityIndex, , , , , lastUpdateTimestamp, , , , , ) = getReserveData(lendingPool, asset);
+		(, liquidityIndex, , , , , lastUpdateTimestamp, , , , , , , , ) = getReserveData(lendingPool, asset);
 	}
 
 	function borrow(
@@ -103,7 +106,10 @@ contract AaveV2Adapter is ILender, BaseLender {
 			}
 		}
 
-		(, , variableBorrowIndex, , , , lastUpdateTimestamp, , , , , ) = getReserveData(lendingPool, asset);
+		(, , , variableBorrowIndex, , , lastUpdateTimestamp, , , , , , , , ) = getReserveData(
+			lendingPool,
+			asset
+		);
 	}
 
 	function repay(
@@ -130,7 +136,10 @@ contract AaveV2Adapter is ILender, BaseLender {
 			}
 		}
 
-		(, , variableBorrowIndex, , , , lastUpdateTimestamp, , , , , ) = getReserveData(lendingPool, asset);
+		(, , , variableBorrowIndex, , , lastUpdateTimestamp, , , , , , , , ) = getReserveData(
+			lendingPool,
+			asset
+		);
 	}
 
 	function redeem(
@@ -154,21 +163,28 @@ contract AaveV2Adapter is ILender, BaseLender {
 			}
 		}
 
-		(, liquidityIndex, , , , , lastUpdateTimestamp, , , , , ) = getReserveData(lendingPool, asset);
+		(, liquidityIndex, , , , , lastUpdateTimestamp, , , , , , , , ) = getReserveData(lendingPool, asset);
 	}
 
 	function enableMarket(bytes calldata params) public payable {
-		address lendingPool = LENDING_POOL;
+		Currency asset;
+		bool useAsCollateral;
 
+		assembly ("memory-safe") {
+			asset := calldataload(params.offset)
+			useAsCollateral := calldataload(add(params.offset, 0x20))
+		}
+
+		setAsCollateral(LENDING_POOL, asset, useAsCollateral);
+	}
+
+	function setAsCollateral(address lendingPool, Currency asset, bool useAsCollateral) internal {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
 			mstore(ptr, 0x5a3b74b900000000000000000000000000000000000000000000000000000000) // setUserUseReserveAsCollateral(address,bool)
-			mstore(
-				add(ptr, 0x04),
-				and(calldataload(params.offset), 0xffffffffffffffffffffffffffffffffffffffff)
-			)
-			mstore(add(ptr, 0x24), and(calldataload(add(params.offset, 0x20)), 0xff))
+			mstore(add(ptr, 0x04), and(asset, 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x24), and(useAsCollateral, 0xff))
 
 			if iszero(call(gas(), lendingPool, 0x00, ptr, 0x44, 0x00, 0x00)) {
 				returndatacopy(ptr, 0x00, returndatasize())
@@ -180,35 +196,32 @@ contract AaveV2Adapter is ILender, BaseLender {
 	function claimRewards(bytes calldata) public payable {
 		address incentives = INCENTIVES;
 
-		bytes memory markets = abi.encode(getMarketsIn(LENDING_POOL));
+		bytes memory markets = abi.encode(getMarketsIn(LENDING_POOL, incentives, true));
 
-		if (getPendingRewards(incentives, markets) != 0) {
-			assembly ("memory-safe") {
-				let ptr := mload(0x40)
+		assembly ("memory-safe") {
+			let ptr := mload(0x40)
 
-				mstore(ptr, 0x4148530400000000000000000000000000000000000000000000000000000000) // claimRewardsToSelf(address[],uint256)
-				mstore(add(ptr, 0x04), 0x40) // index where markets array starts at
-				mstore(add(ptr, 0x24), sub(exp(0x02, 0x100), 0x01)) // type(uint256).max
-				mstore(add(ptr, 0x44), div(sub(mload(markets), 0x40), 0x20)) // length of markets
+			mstore(ptr, 0xbf90f63a00000000000000000000000000000000000000000000000000000000) // claimAllRewardsToSelf(address[])
+			mstore(add(ptr, 0x04), 0x20)
+			mstore(add(ptr, 0x24), div(mload(markets), 0x20))
 
-				let offset := add(ptr, 0x64)
-				let guard := add(offset, mload(markets))
+			let offset := add(ptr, 0x44)
+			let guard := add(offset, mload(markets))
 
-				for {
-					let i := add(markets, 0x20)
-				} lt(offset, guard) {
-					offset := add(offset, 0x20)
-					i := add(i, 0x20)
-				} {
-					mstore(offset, mload(i)) // stores the address of market at current index
-				}
+			for {
+				let i := add(markets, 0x20)
+			} lt(offset, guard) {
+				offset := add(offset, 0x20)
+				i := add(i, 0x20)
+			} {
+				mstore(offset, mload(i))
+			}
 
-				mstore(0x40, and(add(guard, 0x1f), not(0x1f)))
+			mstore(0x40, and(add(guard, 0x1f), not(0x1f)))
 
-				if iszero(call(gas(), incentives, 0x00, ptr, add(mload(markets), 0x64), 0x00, 0x00)) {
-					returndatacopy(ptr, 0x00, returndatasize())
-					revert(ptr, returndatasize())
-				}
+			if iszero(call(gas(), incentives, 0x00, ptr, add(mload(markets), 0x44), 0x00, 0x00)) {
+				returndatacopy(ptr, 0x00, returndatasize())
+				revert(ptr, returndatasize())
 			}
 		}
 	}
@@ -224,20 +237,24 @@ contract AaveV2Adapter is ILender, BaseLender {
 		}
 
 		uint256 configuration;
+		uint128 isolationModeTotalDebt;
 
 		(
 			configuration,
 			reserveData.supplyIndex,
-			reserveData.borrowIndex,
 			reserveData.supplyRate,
+			reserveData.borrowIndex,
 			reserveData.borrowRate,
 			,
 			reserveData.lastAccrualTime,
+			,
 			reserveData.collateralMarket,
 			,
 			reserveData.borrowMarket,
 			,
-
+			,
+			,
+			isolationModeTotalDebt
 		) = getReserveData(lendingPool, asset);
 
 		reserveData.priceFeed = getPriceFeed(oracle, asset);
@@ -251,40 +268,29 @@ contract AaveV2Adapter is ILender, BaseLender {
 
 	function getPendingRewards(
 		address incentives,
-		bytes memory markets
-	) internal view returns (uint256 rewards) {
+		Currency rewardAsset
+	) internal view returns (uint256 accrued) {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
-			mstore(ptr, 0x198fa81e00000000000000000000000000000000000000000000000000000000) // getRewardsBalance(address[],address)
-			mstore(add(ptr, 0x04), 0x40) // index where markets array starts at
-			mstore(add(ptr, 0x24), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
-			mstore(add(ptr, 0x44), div(sub(mload(markets), 0x40), 0x20)) // length of markets
+			mstore(ptr, 0xb022418c00000000000000000000000000000000000000000000000000000000) // getUserAccruedRewards(address,address)
+			mstore(add(ptr, 0x04), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x24), and(rewardAsset, 0xffffffffffffffffffffffffffffffffffffffff))
 
-			let offset := add(ptr, 0x64)
-			let guard := add(offset, mload(markets))
-
-			for {
-				let i := add(markets, 0x20)
-			} lt(offset, guard) {
-				offset := add(offset, 0x20)
-				i := add(i, 0x20)
-			} {
-				mstore(offset, mload(i)) // stores the address of market at current index
-			}
-
-			mstore(0x40, and(add(guard, 0x1f), not(0x1f)))
-
-			if iszero(staticcall(gas(), incentives, ptr, add(mload(markets), 0x64), 0x00, 0x20)) {
+			if iszero(staticcall(gas(), incentives, ptr, 0x44, 0x00, 0x20)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
 
-			rewards := mload(0x00)
+			accrued := mload(0x00)
 		}
 	}
 
-	function getMarketsIn(address lendingPool) internal view returns (Currency[] memory markets) {
+	function getMarketsIn(
+		address lendingPool,
+		address incentives,
+		bool shouldRewarded
+	) internal view returns (Currency[] memory markets) {
 		uint256 userConfig = getUserConfiguration(lendingPool);
 
 		if (userConfig != 0) {
@@ -299,17 +305,23 @@ contract AaveV2Adapter is ILender, BaseLender {
 
 				while (i < length) {
 					if (isAssetIn(userConfig, i)) {
-						(, , , , , , , Currency aToken, , Currency vdToken, , ) = getReserveData(
+						(, , , , , , , , Currency aToken, , Currency vdToken, , , , ) = getReserveData(
 							lendingPool,
 							reserves[i]
 						);
 
-						if (isSupplying(userConfig, i)) {
+						if (
+							isSupplying(userConfig, i) &&
+							(!shouldRewarded || getRewardsByAsset(incentives, aToken).length != 0)
+						) {
 							markets[count] = aToken;
 							count = count + 1;
 						}
 
-						if (isBorrowing(userConfig, i)) {
+						if (
+							isBorrowing(userConfig, i) &&
+							(!shouldRewarded || getRewardsByAsset(incentives, vdToken).length != 0)
+						) {
 							markets[count] = vdToken;
 							count = count + 1;
 						}
@@ -346,42 +358,50 @@ contract AaveV2Adapter is ILender, BaseLender {
 		return abi.decode(returndata, (Currency[]));
 	}
 
-	function getRewardAsset(address incentives) internal view returns (Currency rewardAsset) {
+	function getRewardsList(address incentives) internal view returns (Currency[] memory rewardAssets) {
+		bytes memory returndata;
+
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
-			mstore(ptr, 0x99248ea700000000000000000000000000000000000000000000000000000000) // REWARD_TOKEN()
+			mstore(ptr, 0xb45ac1a900000000000000000000000000000000000000000000000000000000)
 
 			if iszero(staticcall(gas(), incentives, ptr, 0x04, 0x00, 0x20)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
 
-			rewardAsset := mload(0x00)
+			mstore(0x40, add(returndata, add(returndatasize(), 0x20)))
+			mstore(returndata, returndatasize())
+			returndatacopy(add(returndata, 0x20), 0x00, returndatasize())
 		}
+
+		return abi.decode(returndata, (Currency[]));
 	}
 
-	function marketToUnderlying(Currency market) internal view returns (Currency underlying) {
+	function getRewardsByAsset(
+		address incentives,
+		Currency market
+	) internal view returns (Currency[] memory) {
+		bytes memory returndata;
+
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
-			mstore(ptr, 0xb16a19de00000000000000000000000000000000000000000000000000000000) // UNDERLYING_ASSET_ADDRESS()
+			mstore(ptr, 0x6657732f00000000000000000000000000000000000000000000000000000000)
+			mstore(add(ptr, 0x04), and(market, 0xffffffffffffffffffffffffffffffffffffffff))
 
-			if iszero(staticcall(gas(), market, ptr, 0x04, 0x00, 0x20)) {
+			if iszero(staticcall(gas(), incentives, ptr, 0x04, 0x00, 0x20)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
 
-			underlying := mload(0x00)
+			mstore(0x40, add(returndata, add(returndatasize(), 0x20)))
+			mstore(returndata, returndatasize())
+			returndatacopy(add(returndata, 0x20), 0x00, returndatasize())
 		}
-	}
 
-	function underlyingToAToken(Currency underlying) internal view returns (Currency aToken) {
-		(, , , , , , , aToken, , , , ) = getReserveData(LENDING_POOL, underlying);
-	}
-
-	function underlyingToVDebtToken(Currency underlying) internal view returns (Currency vdToken) {
-		(, , , , , , , , , vdToken, , ) = getReserveData(LENDING_POOL, underlying);
+		return abi.decode(returndata, (Currency[]));
 	}
 
 	function getReserveData(
@@ -393,16 +413,19 @@ contract AaveV2Adapter is ILender, BaseLender {
 		returns (
 			uint256 configuration,
 			uint128 liquidityIndex,
-			uint128 variableBorrowIndex,
 			uint128 currentLiquidityRate,
+			uint128 variableBorrowIndex,
 			uint128 currentVariableBorrowRate,
 			uint128 currentStableBorrowRate,
 			uint40 lastUpdateTimestamp,
+			uint16 id,
 			Currency aToken,
 			Currency stableDebtToken,
 			Currency variableDebtToken,
 			address interestRateStrategy,
-			uint8 id
+			uint128 accruedToTreasury,
+			uint128 unbacked,
+			uint128 isolationModeTotalDebt
 		)
 	{
 		assembly ("memory-safe") {
@@ -412,23 +435,26 @@ contract AaveV2Adapter is ILender, BaseLender {
 			mstore(ptr, 0x35ea6a7500000000000000000000000000000000000000000000000000000000)
 			mstore(add(ptr, 0x04), and(asset, 0xffffffffffffffffffffffffffffffffffffffff))
 
-			if iszero(staticcall(gas(), lendingPool, ptr, 0x24, res, 0x180)) {
+			if iszero(staticcall(gas(), lendingPool, ptr, 0x24, res, 0x1e0)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
 
 			configuration := mload(res)
 			liquidityIndex := mload(add(res, 0x20))
-			variableBorrowIndex := mload(add(res, 0x40))
-			currentLiquidityRate := mload(add(res, 0x60))
+			currentLiquidityRate := mload(add(res, 0x40))
+			variableBorrowIndex := mload(add(res, 0x60))
 			currentVariableBorrowRate := mload(add(res, 0x80))
 			currentStableBorrowRate := mload(add(res, 0xa0))
 			lastUpdateTimestamp := mload(add(res, 0xc0))
-			aToken := mload(add(res, 0xe0))
-			stableDebtToken := mload(add(res, 0x100))
-			variableDebtToken := mload(add(res, 0x120))
-			interestRateStrategy := mload(add(res, 0x140))
-			id := mload(add(res, 0x160))
+			id := mload(add(res, 0xe0))
+			aToken := mload(add(res, 0x100))
+			stableDebtToken := mload(add(res, 0x120))
+			variableDebtToken := mload(add(res, 0x140))
+			interestRateStrategy := mload(add(res, 0x160))
+			accruedToTreasury := mload(add(res, 0x180))
+			unbacked := mload(add(res, 0x1a0))
+			isolationModeTotalDebt := mload(add(res, 0x1c0))
 		}
 	}
 
@@ -438,9 +464,9 @@ contract AaveV2Adapter is ILender, BaseLender {
 		internal
 		view
 		returns (
-			uint256 totalCollateral,
-			uint256 totalDebt,
-			uint256 availableBorrows,
+			uint256 totalCollateralBase,
+			uint256 totalDebtBase,
+			uint256 availableBorrowsBase,
 			uint256 currentLiquidationThreshold,
 			uint256 ltv,
 			uint256 healthFactor
@@ -458,9 +484,9 @@ contract AaveV2Adapter is ILender, BaseLender {
 				revert(ptr, returndatasize())
 			}
 
-			totalCollateral := mload(res)
-			totalDebt := mload(add(res, 0x20))
-			availableBorrows := mload(add(res, 0x40))
+			totalCollateralBase := mload(res)
+			totalDebtBase := mload(add(res, 0x20))
+			availableBorrowsBase := mload(add(res, 0x40))
 			currentLiquidationThreshold := mload(add(res, 0x60))
 			ltv := mload(add(res, 0x80))
 			healthFactor := mload(add(res, 0xa0))
@@ -506,7 +532,7 @@ contract AaveV2Adapter is ILender, BaseLender {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
-			mstore(ptr, 0xb3596f0700000000000000000000000000000000000000000000000000000000) // getAssetPrice(address)
+			mstore(ptr, 0xb3596f0700000000000000000000000000000000000000000000000000000000)
 			mstore(add(ptr, 0x04), and(asset, 0xffffffffffffffffffffffffffffffffffffffff))
 
 			if iszero(staticcall(gas(), oracle, ptr, 0x24, 0x00, 0x20)) {
@@ -558,15 +584,23 @@ contract AaveV2Adapter is ILender, BaseLender {
 	function isCollateralAsset(uint256 configuration) internal pure returns (bool) {
 		return
 			getValue(configuration, LTV_MASK, 0) != 0 &&
-			getValue(configuration, LIQUIDATION_THRESHOLD_MASK, LIQUIDATION_THRESHOLD_OFFSET) != 0;
+			getValue(configuration, LIQUIDATION_THRESHOLD_MASK, LIQUIDATION_THRESHOLD_OFFSET) != 0 &&
+			!isIsolated(configuration);
 	}
 
 	function isBorrowAsset(uint256 configuration) internal pure returns (bool) {
-		return getFlag(configuration, BORROWING_MASK);
+		return getFlag(configuration, BORROWING_MASK) && !isIsolated(configuration);
+	}
+
+	function isIsolated(uint256 configuration) internal pure returns (bool) {
+		return getValue(configuration, DEBT_CEILING_MASK, DEBT_CEILING_OFFSET) != 0;
 	}
 
 	function isReserveActive(uint256 configuration) internal pure returns (bool) {
-		return getFlag(configuration, ACTIVE_MASK) && !getFlag(configuration, FROZEN_MASK);
+		return
+			getFlag(configuration, ACTIVE_MASK) &&
+			!getFlag(configuration, FROZEN_MASK) &&
+			!getFlag(configuration, PAUSED_MASK);
 	}
 
 	function getValue(
@@ -587,44 +621,31 @@ contract AaveV2Adapter is ILender, BaseLender {
 
 	function isAssetIn(uint256 configuration, uint256 reserveId) internal pure returns (bool flag) {
 		assembly ("memory-safe") {
-			flag := and(shr(mul(reserveId, 0x02), configuration), 0x03)
+			flag := and(shr(shl(0x01, reserveId), configuration), 0x03)
 		}
 	}
 
 	function isBorrowing(uint256 configuration, uint256 reserveId) internal pure returns (bool flag) {
 		assembly ("memory-safe") {
-			flag := and(shr(mul(reserveId, 0x02), configuration), 0x01)
+			flag := and(shr(shl(0x01, reserveId), configuration), 0x01)
+		}
+	}
+
+	function isBorrowingAny(uint256 configuration) internal pure returns (bool flag) {
+		assembly ("memory-safe") {
+			flag := and(configuration, BORROW_MASK)
 		}
 	}
 
 	function isSupplying(uint256 configuration, uint256 reserveId) internal pure returns (bool flag) {
 		assembly ("memory-safe") {
-			flag := and(shr(add(mul(reserveId, 0x02), 0x01), configuration), 0x01)
+			flag := and(shr(add(0x01, shl(0x01, reserveId)), configuration), 0x01)
 		}
 	}
 
-	function computeHealthFactor(
-		uint256 totalCollateral,
-		uint256 totalLiability,
-		uint256 liquidationThreshold
-	) internal pure returns (uint256) {
-		return
-			totalLiability != 0
-				? (totalCollateral.percentMul(liquidationThreshold)).wadDiv(totalLiability)
-				: FullMath.MAX_UINT256;
-	}
-
-	function computeAvailableBorrows(
-		uint256 totalCollateral,
-		uint256 totalLiability,
-		uint256 ltv
-	) internal pure returns (uint256 availableBorrows) {
-		availableBorrows = totalCollateral.percentMul(ltv);
-
-		if (availableBorrows >= totalLiability) {
-			unchecked {
-				availableBorrows -= totalLiability;
-			}
+	function isSupplyingAny(uint256 configuration) internal pure returns (bool flag) {
+		assembly ("memory-safe") {
+			flag := and(configuration, COLLATERAL_MASK)
 		}
 	}
 
@@ -634,7 +655,7 @@ contract AaveV2Adapter is ILender, BaseLender {
 		uint40 timeElapsed
 	) internal pure returns (uint256) {
 		unchecked {
-			if (timeElapsed == 0) return supplyIndex;
+			if (timeElapsed != 0) return supplyIndex;
 
 			uint256 linearInterest = WadRayMath.RAY + supplyRate.mulDiv(timeElapsed, SECONDS_PER_YEAR);
 
