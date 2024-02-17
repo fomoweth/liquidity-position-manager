@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {AaveV2Adapter} from "src/modules/adapters/lenders/AaveV2Adapter.sol";
+import {AaveV3Adapter} from "src/modules/adapters/lenders/AaveV3Adapter.sol";
 import {Currency, CurrencyLibrary} from "src/types/Currency.sol";
 
-contract MockAaveV2Adapter is AaveV2Adapter {
+contract MockAaveV3Adapter is AaveV3Adapter {
 	using CurrencyLibrary for Currency;
 
 	constructor(
@@ -17,7 +17,7 @@ contract MockAaveV2Adapter is AaveV2Adapter {
 		Currency _wrappedNative,
 		Currency _weth
 	)
-		AaveV2Adapter(
+		AaveV3Adapter(
 			_resolver,
 			_protocol,
 			_lendingPool,
@@ -111,20 +111,12 @@ contract MockAaveV2Adapter is AaveV2Adapter {
 		this.claimRewards("0x");
 	}
 
-	function getPendingRewards() public view returns (uint256) {
-		return getPendingRewards(INCENTIVES, abi.encode(getMarketsIn(LENDING_POOL)));
+	function getPendingRewards(Currency rewardAsset) public view returns (uint256) {
+		return getPendingRewards(INCENTIVES, rewardAsset);
 	}
 
-	function getMarketsIn() public view returns (Currency[] memory markets) {
-		return getMarketsIn(LENDING_POOL);
-	}
-
-	function getReservesList() public view returns (Currency[] memory assets) {
-		return getReservesList(LENDING_POOL);
-	}
-
-	function getRewardAsset() public view returns (Currency rewardAsset) {
-		return getRewardAsset(INCENTIVES);
+	function getRewardsList() public view returns (Currency[] memory rewardAssets) {
+		return getRewardsList(INCENTIVES);
 	}
 
 	function getReserveData(
@@ -135,16 +127,19 @@ contract MockAaveV2Adapter is AaveV2Adapter {
 		returns (
 			uint256 configuration,
 			uint128 liquidityIndex,
-			uint128 variableBorrowIndex,
 			uint128 currentLiquidityRate,
+			uint128 variableBorrowIndex,
 			uint128 currentVariableBorrowRate,
 			uint128 currentStableBorrowRate,
 			uint40 lastUpdateTimestamp,
+			uint16 id,
 			Currency aToken,
 			Currency stableDebtToken,
 			Currency variableDebtToken,
 			address interestRateStrategy,
-			uint8 id
+			uint128 accruedToTreasury,
+			uint128 unbacked,
+			uint128 isolationModeTotalDebt
 		)
 	{
 		return getReserveData(LENDING_POOL, asset);
@@ -190,17 +185,18 @@ contract MockAaveV2Adapter is AaveV2Adapter {
 	}
 
 	function isAssetIn(Currency asset) public view returns (bool) {
-		(, , , , , , , , , , , uint8 id) = getReserveData(LENDING_POOL, asset);
+		(, , , , , , , uint16 id, , , , , , , ) = getReserveData(LENDING_POOL, asset);
+
 		return isAssetIn(getUserConfiguration(LENDING_POOL), id);
 	}
 
 	function isSupplying(Currency asset) public view returns (bool) {
-		(, , , , , , , , , , , uint8 id) = getReserveData(LENDING_POOL, asset);
+		(, , , , , , , uint16 id, , , , , , , ) = getReserveData(LENDING_POOL, asset);
 		return isSupplying(getUserConfiguration(LENDING_POOL), id);
 	}
 
 	function isBorrowing(Currency asset) public view returns (bool) {
-		(, , , , , , , , , , , uint8 id) = getReserveData(LENDING_POOL, asset);
+		(, , , , , , , uint16 id, , , , , , , ) = getReserveData(LENDING_POOL, asset);
 		return isBorrowing(getUserConfiguration(LENDING_POOL), id);
 	}
 
