@@ -23,17 +23,19 @@ library Errors {
 
 	error NotSupported();
 
-	error InvalidAsset();
-
 	error InvalidCaller();
 
 	error InvalidCallValue();
+
+	error InvalidCommand(uint8 command);
 
 	error InvalidDenomination();
 
 	error InvalidModule();
 
 	error InvalidPool();
+
+	error InvalidSignature();
 
 	error InvalidSwap();
 

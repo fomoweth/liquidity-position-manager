@@ -16,8 +16,16 @@ library SafeCast {
 		if (((downcasted = uint64(value)) != value)) revert SafeCastOverflow();
 	}
 
+	function toUint96(uint256 value) internal pure returns (uint96 downcasted) {
+		if (((downcasted = uint96(value)) != value)) revert SafeCastOverflow();
+	}
+
 	function toUint104(uint256 value) internal pure returns (uint104 downcasted) {
 		if (((downcasted = uint104(value)) != value)) revert SafeCastOverflow();
+	}
+
+	function toUint112(uint256 value) internal pure returns (uint112 downcasted) {
+		if (((downcasted = uint112(value)) != value)) revert SafeCastOverflow();
 	}
 
 	function toUint128(uint256 value) internal pure returns (uint128 downcasted) {
@@ -35,6 +43,24 @@ library SafeCast {
 	function toUint256(int256 value) internal pure returns (uint256) {
 		if (value < 0) revert SafeCastOverflow();
 		return uint256(value);
+	}
+
+	function toInt88(int256 value) internal pure returns (int88 downcasted) {
+		if (((downcasted = int88(value)) != value)) revert SafeCastOverflow();
+	}
+
+	function toInt88(uint256 value) internal pure returns (int88 downcasted) {
+		if (value > uint88(type(int88).max)) revert SafeCastOverflow();
+		downcasted = int88(int256(value));
+	}
+
+	function toInt104(int256 value) internal pure returns (int104 downcasted) {
+		if (((downcasted = int104(value)) != value)) revert SafeCastOverflow();
+	}
+
+	function toInt104(uint256 value) internal pure returns (int104 downcasted) {
+		if (value > uint104(type(int104).max)) revert SafeCastOverflow();
+		downcasted = int104(int256(value));
 	}
 
 	function toInt128(int256 value) internal pure returns (int128 downcasted) {

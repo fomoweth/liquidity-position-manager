@@ -65,7 +65,7 @@ abstract contract Chain {
 		}
 	}
 
-	function isArbitrum() private view returns (bool res) {
+	function isArbitrum() internal view returns (bool res) {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
