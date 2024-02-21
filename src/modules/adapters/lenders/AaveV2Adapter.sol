@@ -60,6 +60,8 @@ contract AaveV2Adapter is ILender, BaseLender {
 
 		(Currency asset, uint256 amount) = decode(params);
 
+		verifyReserve(CurrencyLibrary.ZERO, asset, amount, true);
+
 		approveIfNeeded(asset, lendingPool, amount);
 
 		assembly ("memory-safe") {
@@ -87,6 +89,8 @@ contract AaveV2Adapter is ILender, BaseLender {
 
 		(Currency asset, uint256 amount) = decode(params);
 
+		verifyReserve(CurrencyLibrary.ZERO, asset, amount, false);
+
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
@@ -112,6 +116,8 @@ contract AaveV2Adapter is ILender, BaseLender {
 		address lendingPool = LENDING_POOL;
 
 		(Currency asset, uint256 amount) = decode(params);
+
+		verifyReserve(CurrencyLibrary.ZERO, asset, amount, false);
 
 		approveIfNeeded(asset, lendingPool, amount);
 
@@ -139,6 +145,8 @@ contract AaveV2Adapter is ILender, BaseLender {
 		address lendingPool = LENDING_POOL;
 
 		(Currency asset, uint256 amount) = decode(params);
+
+		verifyReserve(CurrencyLibrary.ZERO, asset, amount, true);
 
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
@@ -545,12 +553,39 @@ contract AaveV2Adapter is ILender, BaseLender {
 		}
 	}
 
-	function isCollateral(address, Currency asset) internal view virtual override returns (bool) {
+	function _verifyReserve(
+		Currency,
+		Currency asset,
+		uint256 amount,
+		bool useAsCollateral
+	) internal view virtual override returns (ReserveError) {
+		if (asset.isZero()) return ReserveError.ZeroAddress;
+		if (amount == 0) return ReserveError.ZeroAmount;
+
+		(uint256 configuration, , , , , , , Currency aToken, , Currency vdToken, , ) = getReserveData(
+			LENDING_POOL,
+			asset
+		);
+
+		if (!isReserveActive(configuration)) return ReserveError.NotActive;
+
+		if (useAsCollateral) {
+			if (aToken.isZero()) return ReserveError.NotSupported;
+			if (!isCollateralAsset(configuration)) return ReserveError.NotCollateral;
+		} else {
+			if (vdToken.isZero()) return ReserveError.NotSupported;
+			if (!isBorrowAsset(configuration)) return ReserveError.NotBorrowable;
+		}
+
+		return ReserveError.NoError;
+	}
+
+	function _isCollateral(Currency, Currency asset) internal view virtual override returns (bool) {
 		uint256 configuration = getConfiguration(LENDING_POOL, asset);
 		return isCollateralAsset(configuration) && isReserveActive(configuration);
 	}
 
-	function isBorrowable(address, Currency asset) internal view virtual override returns (bool) {
+	function _isBorrowable(Currency, Currency asset) internal view virtual override returns (bool) {
 		uint256 configuration = getConfiguration(LENDING_POOL, asset);
 		return isBorrowAsset(configuration) && isReserveActive(configuration);
 	}
@@ -600,31 +635,6 @@ contract AaveV2Adapter is ILender, BaseLender {
 	function isSupplying(uint256 configuration, uint256 reserveId) internal pure returns (bool flag) {
 		assembly ("memory-safe") {
 			flag := and(shr(add(mul(reserveId, 0x02), 0x01), configuration), 0x01)
-		}
-	}
-
-	function computeHealthFactor(
-		uint256 totalCollateral,
-		uint256 totalLiability,
-		uint256 liquidationThreshold
-	) internal pure returns (uint256) {
-		return
-			totalLiability != 0
-				? (totalCollateral.percentMul(liquidationThreshold)).wadDiv(totalLiability)
-				: FullMath.MAX_UINT256;
-	}
-
-	function computeAvailableBorrows(
-		uint256 totalCollateral,
-		uint256 totalLiability,
-		uint256 ltv
-	) internal pure returns (uint256 availableBorrows) {
-		availableBorrows = totalCollateral.percentMul(ltv);
-
-		if (availableBorrows >= totalLiability) {
-			unchecked {
-				availableBorrows -= totalLiability;
-			}
 		}
 	}
 

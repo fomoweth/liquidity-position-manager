@@ -8,9 +8,17 @@ import {BaseModule} from "../../BaseModule.sol";
 /// @title BaseLender
 
 abstract contract BaseLender is BaseModule {
-	error BadPrice();
-	error NotCollateral();
-	error NotBorrowable();
+	enum ReserveError {
+		NoError,
+		ZeroAddress,
+		ZeroAmount,
+		NotSupported,
+		NotCollateral,
+		NotBorrowable,
+		NotActive,
+		ExceededSupplyCap,
+		ExceededBorrowCap
+	}
 
 	address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 	address internal constant BTC = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
@@ -39,7 +47,30 @@ abstract contract BaseLender is BaseModule {
 		//
 	}
 
-	function isCollateral(address market, Currency asset) internal view virtual returns (bool);
+	function verifyReserve(Currency market, Currency asset, uint256 amount, bool isCollateral) internal view {
+		_validate(_verifyReserve(market, asset, amount, isCollateral));
+	}
 
-	function isBorrowable(address market, Currency asset) internal view virtual returns (bool);
+	function _verifyReserve(
+		Currency market,
+		Currency asset,
+		uint256 amount,
+		bool isCollateral
+	) internal view virtual returns (ReserveError);
+
+	function _isCollateral(Currency market, Currency asset) internal view virtual returns (bool);
+
+	function _isBorrowable(Currency market, Currency asset) internal view virtual returns (bool);
+
+	function _validate(ReserveError err) private pure {
+		if (err == ReserveError.NoError) return;
+		else if (err == ReserveError.ZeroAddress) revert Errors.ZeroAddress();
+		else if (err == ReserveError.ZeroAmount) revert Errors.ZeroAmount();
+		else if (err == ReserveError.NotSupported) revert Errors.NotSupported();
+		else if (err == ReserveError.NotCollateral) revert Errors.NotCollateral();
+		else if (err == ReserveError.NotBorrowable) revert Errors.NotBorrowable();
+		else if (err == ReserveError.NotActive) revert Errors.NotActive();
+		else if (err == ReserveError.ExceededSupplyCap) revert Errors.ExceededSupplyCap();
+		else if (err == ReserveError.ExceededBorrowCap) revert Errors.ExceededBorrowCap();
+	}
 }

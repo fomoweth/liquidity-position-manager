@@ -176,12 +176,12 @@ contract MockAaveV3Adapter is AaveV3Adapter {
 		return getPriceFeed(PRICE_ORACLE, asset);
 	}
 
-	function isCollateral(Currency asset) public view returns (bool) {
-		return isCollateral(address(0), asset);
+	function isCollateral(Currency market, Currency asset) public view returns (bool) {
+		return _isCollateral(market, asset);
 	}
 
-	function isBorrowable(Currency asset) public view returns (bool) {
-		return isBorrowable(address(0), asset);
+	function isBorrowable(Currency market, Currency asset) public view returns (bool) {
+		return _isBorrowable(market, asset);
 	}
 
 	function isAssetIn(Currency asset) public view returns (bool) {

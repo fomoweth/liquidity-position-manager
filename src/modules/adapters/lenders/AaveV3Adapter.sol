@@ -25,13 +25,20 @@ contract AaveV3Adapter is ILender, BaseLender {
 
 	uint256 internal constant LTV_MASK						=	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000; // prettier-ignore
 	uint256 internal constant LIQUIDATION_THRESHOLD_MASK	=	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000FFFF; // prettier-ignore
+	uint256 internal constant DECIMALS_MASK					=	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00FFFFFFFFFFFF; // prettier-ignore
 	uint256 internal constant ACTIVE_MASK					=	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFF; // prettier-ignore
 	uint256 internal constant FROZEN_MASK					=	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFDFFFFFFFFFFFFFF; // prettier-ignore
 	uint256 internal constant BORROWING_MASK				=	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFBFFFFFFFFFFFFFF; // prettier-ignore
+	uint256 internal constant STABLE_BORROWING_MASK			=	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF7FFFFFFFFFFFFFF; // prettier-ignore
 	uint256 internal constant PAUSED_MASK					=	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFF; // prettier-ignore
+	uint256 internal constant BORROW_CAP_MASK				=	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000000FFFFFFFFFFFFFFFFFFFF; // prettier-ignore
+	uint256 internal constant SUPPLY_CAP_MASK				=	0xFFFFFFFFFFFFFFFFFFFFFFFFFF000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFF; // prettier-ignore
 	uint256 internal constant DEBT_CEILING_MASK				=	0xF0000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF; // prettier-ignore
 
 	uint256 internal constant LIQUIDATION_THRESHOLD_OFFSET = 16;
+	uint256 internal constant DECIMALS_OFFSET = 48;
+	uint256 internal constant BORROW_CAP_OFFSET = 80;
+	uint256 internal constant SUPPLY_CAP_OFFSET = 116;
 	uint256 internal constant DEBT_CEILING_OFFSET = 212;
 
 	uint256 internal constant SECONDS_PER_DAY = 86400;
@@ -63,6 +70,8 @@ contract AaveV3Adapter is ILender, BaseLender {
 
 		(Currency asset, uint256 amount) = decode(params);
 
+		verifyReserve(CurrencyLibrary.ZERO, asset, amount, true);
+
 		approveIfNeeded(asset, lendingPool, amount);
 
 		assembly ("memory-safe") {
@@ -89,6 +98,8 @@ contract AaveV3Adapter is ILender, BaseLender {
 		address lendingPool = LENDING_POOL;
 
 		(Currency asset, uint256 amount) = decode(params);
+
+		verifyReserve(CurrencyLibrary.ZERO, asset, amount, false);
 
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
@@ -121,6 +132,8 @@ contract AaveV3Adapter is ILender, BaseLender {
 
 		approveIfNeeded(asset, lendingPool, amount);
 
+		verifyReserve(CurrencyLibrary.ZERO, asset, amount, false);
+
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
@@ -148,6 +161,8 @@ contract AaveV3Adapter is ILender, BaseLender {
 		address lendingPool = LENDING_POOL;
 
 		(Currency asset, uint256 amount) = decode(params);
+
+		verifyReserve(CurrencyLibrary.ZERO, asset, amount, true);
 
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
@@ -571,12 +586,39 @@ contract AaveV3Adapter is ILender, BaseLender {
 		}
 	}
 
-	function isCollateral(address, Currency asset) internal view virtual override returns (bool) {
+	function _verifyReserve(
+		Currency,
+		Currency asset,
+		uint256 amount,
+		bool useAsCollateral
+	) internal view virtual override returns (ReserveError) {
+		if (asset.isZero()) return ReserveError.ZeroAddress;
+		if (amount == 0) return ReserveError.ZeroAmount;
+
+		(uint256 configuration, , , , , , , , Currency aToken, , Currency vdToken, , , , ) = getReserveData(
+			LENDING_POOL,
+			asset
+		);
+
+		if (!isReserveActive(configuration)) return ReserveError.NotActive;
+
+		if (useAsCollateral) {
+			if (aToken.isZero()) return ReserveError.NotSupported;
+			if (!isCollateralAsset(configuration)) return ReserveError.NotCollateral;
+		} else {
+			if (vdToken.isZero()) return ReserveError.NotSupported;
+			if (!isBorrowAsset(configuration)) return ReserveError.NotBorrowable;
+		}
+
+		return ReserveError.NoError;
+	}
+
+	function _isCollateral(Currency, Currency asset) internal view virtual override returns (bool) {
 		uint256 configuration = getConfiguration(LENDING_POOL, asset);
 		return isCollateralAsset(configuration) && isReserveActive(configuration);
 	}
 
-	function isBorrowable(address, Currency asset) internal view virtual override returns (bool) {
+	function _isBorrowable(Currency, Currency asset) internal view virtual override returns (bool) {
 		uint256 configuration = getConfiguration(LENDING_POOL, asset);
 		return isBorrowAsset(configuration) && isReserveActive(configuration);
 	}
