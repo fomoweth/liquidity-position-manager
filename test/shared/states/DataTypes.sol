@@ -19,3 +19,24 @@ struct AaveMarket {
 	uint16 ltv;
 	uint16 id;
 }
+
+struct CompoundV2Config {
+	bytes32 protocol;
+	address comptroller;
+	address oracle;
+	Currency cNative;
+	Currency cETH;
+	address denomination;
+}
+
+struct CompoundV3Config {
+	bytes32 protocol;
+	address configurator;
+	address rewards;
+}
+
+struct CompoundMarket {
+	Currency market;
+	Currency underlying;
+	uint16 ltv;
+}

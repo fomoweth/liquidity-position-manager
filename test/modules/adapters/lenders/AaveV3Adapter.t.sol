@@ -30,8 +30,8 @@ contract AaveV3AdapterTest is BaseTest {
 			aaveV3Config.lendingPool,
 			aaveV3Config.incentives,
 			aaveV3Config.oracle,
-			ETH,
-			WETH,
+			aaveV3Config.denomination,
+			WRAPPED_NATIVE,
 			WETH
 		);
 

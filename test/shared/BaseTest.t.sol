@@ -6,11 +6,13 @@ import {Currency, CurrencyLibrary} from "src/types/Currency.sol";
 import {CurrencyState} from "test/shared/states/CurrencyState.sol";
 import {AaveUtils} from "test/shared/utils/AaveUtils.sol";
 import {Assertion} from "test/shared/utils/Assertion.sol";
+import {CometUtils} from "test/shared/utils/CometUtils.sol";
+import {CompoundUtils} from "test/shared/utils/CompoundUtils.sol";
 import {Deployer} from "test/shared/utils/Deployer.sol";
 import {Fork} from "test/shared/utils/Fork.sol";
 import {Utils} from "test/shared/utils/Utils.sol";
 
-abstract contract BaseTest is Test, Assertion, Fork, Deployer, AaveUtils {
+abstract contract BaseTest is Test, Assertion, Fork, Deployer, AaveUtils, CometUtils, CompoundUtils {
 	using CurrencyLibrary for Currency;
 
 	function setUp() public virtual;
@@ -21,6 +23,8 @@ abstract contract BaseTest is Test, Assertion, Fork, Deployer, AaveUtils {
 
 		setUpCurrencies(chainId);
 		setUpAave(chainId);
+		setUpComet(chainId);
+		setUpCompound(chainId);
 	}
 
 	function deal(Currency currency, address account, uint256 amount) internal {

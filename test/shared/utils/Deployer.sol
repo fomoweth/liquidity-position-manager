@@ -8,8 +8,9 @@ import {AddressResolver} from "src/configuration/AddressResolver.sol";
 import {Create3Factory} from "src/utils/Create3Factory.sol";
 import {AaveV2Adapter} from "src/modules/adapters/lenders/AaveV2Adapter.sol";
 import {AaveV3Adapter} from "src/modules/adapters/lenders/AaveV3Adapter.sol";
+import {CompoundV2Adapter} from "src/modules/adapters/lenders/CompoundV2Adapter.sol";
 import {Currency} from "src/types/Currency.sol";
-import {AaveConfig} from "test/shared/states/DataTypes.sol";
+import {AaveConfig, CompoundV2Config} from "test/shared/states/DataTypes.sol";
 
 contract Deployer is CommonBase {
 	AddressResolver resolver;
@@ -18,6 +19,7 @@ contract Deployer is CommonBase {
 
 	AaveV2Adapter aaveV2Adapter;
 	AaveV3Adapter aaveV3Adapter;
+	CompoundV2Adapter compV2Adapter;
 
 	function deployConfigurations() internal {
 		deployCreate3Factory();
@@ -90,6 +92,34 @@ contract Deployer is CommonBase {
 							config.incentives,
 							config.oracle,
 							config.denomination,
+							wrappedNative,
+							weth
+						)
+					)
+				)
+			);
+		}
+	}
+
+	function deployCompoundV2Adapter(
+		CompoundV2Config memory config,
+		Currency wrappedNative,
+		Currency weth
+	) internal returns (CompoundV2Adapter adapter) {
+		if (config.protocol != bytes32(0)) {
+			adapter = CompoundV2Adapter(
+				create3(
+					"CompoundV2Adapter",
+					"COMPOUND_V2_ADAPTER",
+					abi.encodePacked(
+						type(CompoundV2Adapter).creationCode,
+						abi.encode(
+							address(resolver),
+							config.protocol,
+							config.comptroller,
+							config.oracle,
+							config.cNative,
+							config.cETH,
 							wrappedNative,
 							weth
 						)

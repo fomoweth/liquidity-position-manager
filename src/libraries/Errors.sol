@@ -7,6 +7,8 @@ pragma solidity ^0.8.20;
 library Errors {
 	error ZeroAddress();
 
+	error ZeroAmount();
+
 	error ZeroBytes();
 
 	error ZeroValue();
@@ -22,6 +24,10 @@ library Errors {
 	error NotActive();
 
 	error NotSupported();
+
+	error NotCollateral();
+
+	error NotBorrowable();
 
 	error InvalidCaller();
 
@@ -46,4 +52,6 @@ library Errors {
 	error Slippage();
 
 	error ExceededMaxLimit();
+
+	error BadPrice();
 }
