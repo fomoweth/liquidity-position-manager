@@ -50,6 +50,25 @@ abstract contract Utils {
 		redeemAmount = convertFromETH(collateralValue, collateralPrice, collateralUnit);
 	}
 
+	function latestAnswer(address feed) internal view returns (uint256 answer) {
+		assembly ("memory-safe") {
+			let ptr := mload(0x40)
+
+			mstore(ptr, 0x50d25bcd00000000000000000000000000000000000000000000000000000000)
+
+			if iszero(staticcall(gas(), feed, ptr, 0x04, 0x00, 0x20)) {
+				returndatacopy(ptr, 0x00, returndatasize())
+				revert(ptr, returndatasize())
+			}
+
+			answer := mload(0x00)
+
+			if slt(answer, 0x00) {
+				answer := 0x00
+			}
+		}
+	}
+
 	function convertFromETH(uint256 amount, uint256 price, uint256 unit) internal pure returns (uint256) {
 		return amount.mulDiv(toScale(unit), price);
 	}
