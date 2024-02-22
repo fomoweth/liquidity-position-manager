@@ -15,4 +15,16 @@ interface IACLManager {
 	function removeModuleListingAdmin(address account) external;
 
 	function isModuleListingAdmin(address account) external view returns (bool);
+
+	function addFeedListingAdmin(address account) external;
+
+	function removeFeedListingAdmin(address account) external;
+
+	function isFeedListingAdmin(address account) external view returns (bool);
+
+	function addReserveListingAdmin(address account) external;
+
+	function removeReserveListingAdmin(address account) external;
+
+	function isReserveListingAdmin(address account) external view returns (bool);
 }

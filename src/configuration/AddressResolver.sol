@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {IAddressResolver} from "src/interfaces/IAddressResolver.sol";
 import {IACLManager} from "src/interfaces/IACLManager.sol";
+import {IFeedRegistry} from "src/interfaces/IFeedRegistry.sol";
 import {Ownable} from "@openzeppelin/access/Ownable.sol";
 
 /// @title AddressResolver
@@ -14,6 +15,7 @@ contract AddressResolver is IAddressResolver, Ownable {
 
 	bytes32 internal constant ACL_ADMIN = keccak256(bytes("ACL_ADMIN"));
 	bytes32 internal constant ACL_MANAGER = keccak256(bytes("ACL_MANAGER"));
+	bytes32 internal constant FEED_REGISTRY = keccak256(bytes("FEED_REGISTRY"));
 
 	constructor(address initialOwner) Ownable(initialOwner) {}
 
@@ -40,6 +42,14 @@ contract AddressResolver is IAddressResolver, Ownable {
 
 	function setACLManager(address newACLManager) external onlyOwner {
 		setAddress(ACL_MANAGER, newACLManager);
+	}
+
+	function getFeedRegistry() external view returns (IFeedRegistry) {
+		return IFeedRegistry(getAddress(FEED_REGISTRY));
+	}
+
+	function setFeedRegistry(address newFeedRegistry) external onlyOwner {
+		setAddress(FEED_REGISTRY, newFeedRegistry);
 	}
 
 	function isZeroAddress(address target) internal pure returns (bool res) {
