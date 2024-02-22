@@ -2,137 +2,195 @@
 pragma solidity ^0.8.20;
 
 import {console2 as console} from "forge-std/Test.sol";
-import {WadRayMath} from "src/libraries/WadRayMath.sol";
+import {PercentageMath} from "src/libraries/PercentageMath.sol";
 import {Currency, CurrencyLibrary} from "src/types/Currency.sol";
 import {MockCompoundV2Adapter} from "src/mocks/MockCompoundV2Adapter.sol";
-import {CompoundMarket} from "test/shared/states/DataTypes.sol";
 import {BaseTest} from "test/shared/BaseTest.t.sol";
 
 // forge test -vv --match-path test/modules/adapters/lenders/CompoundV2Adapter.t.sol
 
 contract CompoundV2AdapterTest is BaseTest {
 	using CurrencyLibrary for Currency;
-	using WadRayMath for uint256;
+	using PercentageMath for uint256;
 
 	MockCompoundV2Adapter adapter;
-
-	CompoundMarket ceth;
-	CompoundMarket cwbtc;
-	CompoundMarket cdai;
-	CompoundMarket cusdt;
-
-	Currency rewardAsset;
 
 	function setUp() public virtual override {
 		_setUp(ETHEREUM_CHAIN_ID, true);
 
-		deployConfigurations();
-
 		adapter = new MockCompoundV2Adapter(
 			address(resolver),
+			address(cTokenRegistry),
 			compV2Config.protocol,
 			compV2Config.comptroller,
 			compV2Config.oracle,
 			compV2Config.cNative,
 			compV2Config.cETH,
+			feedRegistry.getFeed(WETH, USD),
 			WRAPPED_NATIVE,
 			WETH
 		);
 
-		Currency[] memory assets = new Currency[](4);
-		assets[0] = WETH;
-		assets[1] = WBTC;
-		assets[2] = DAI;
-		assets[3] = USDT;
-
-		CompoundMarket[] memory markets = getCTokenMarkets(assets);
-		ceth = markets[0];
-		cwbtc = markets[1];
-		cdai = markets[2];
-		cusdt = markets[3];
-
-		rewardAsset = adapter.getRewardAsset();
-
-		vm.label(rewardAsset.toAddress(), symbol(rewardAsset));
+		vm.label(address(adapter), "MockCompoundV2Adapter");
 	}
 
 	function test_enableMarket() public {
-		deal(ceth.underlying, address(adapter), 1 ether);
+		Currency cETH = cTokenRegistry.cETH();
 
-		adapter.supply(ceth.market, ceth.underlying, 1 ether);
+		deal(WETH, address(adapter), 1 ether);
 
-		assertTrue(adapter.checkMembership(ceth.market));
+		adapter.supply(abi.encode(cETH, WETH, 1 ether));
 
-		adapter.exitMarket(ceth.market);
+		assertTrue(adapter.checkMembership(cETH));
 
-		assertTrue(!adapter.checkMembership(ceth.market));
+		adapter.exitMarket(abi.encode(cETH));
 
-		adapter.enterMarket(ceth.market);
+		assertFalse(adapter.checkMembership(cETH));
 
-		assertTrue(adapter.checkMembership(ceth.market));
+		adapter.enterMarket(abi.encode(cETH));
+
+		assertTrue(adapter.checkMembership(cETH));
 	}
 
 	function test_supplyAndBorrow() public {
+		Currency cETH = cTokenRegistry.underlyingToCToken(WETH);
+		Currency cDAI = cTokenRegistry.underlyingToCToken(DAI);
+		Currency cWBTC = cTokenRegistry.underlyingToCToken(WBTC);
+		Currency cUSDT = cTokenRegistry.underlyingToCToken(USDT);
+
 		(uint256 ethSupply, uint256 daiBorrow) = getSupplyAndBorrowAmounts(
-			getCompoundPrice(ceth.market, 18),
+			adapter.getPrice(cETH),
 			18,
-			getCompoundPrice(cdai.market, 18),
+			adapter.getPrice(cDAI),
 			18,
-			ceth.ltv,
+			adapter.getLtv(cETH),
 			5000,
 			10 ether
 		);
 
-		deal(ceth.underlying, address(adapter), ethSupply);
+		deal(WETH, address(adapter), ethSupply);
 
-		adapter.supply(ceth.market, ceth.underlying, ethSupply);
+		adapter.supply(abi.encode(cETH, WETH, ethSupply));
 
 		report("Supplied ETH");
 
-		adapter.borrow(cdai.market, cdai.underlying, daiBorrow);
+		adapter.borrow(abi.encode(cDAI, DAI, daiBorrow));
 
 		report("Borrowed DAI");
 
 		(uint256 wbtcSupply, uint256 usdtBorrow) = getSupplyAndBorrowAmounts(
-			getCompoundPrice(cwbtc.market, 8),
+			adapter.getPrice(cWBTC),
 			8,
-			getCompoundPrice(cusdt.market, 6),
+			adapter.getPrice(cUSDT),
 			6,
-			cwbtc.ltv,
+			adapter.getLtv(cWBTC),
 			7000,
 			15 ether
 		);
 
-		deal(cwbtc.underlying, address(adapter), wbtcSupply);
+		deal(WBTC, address(adapter), wbtcSupply);
 
-		adapter.supply(cwbtc.market, cwbtc.underlying, wbtcSupply);
+		adapter.supply(abi.encode(cWBTC, WBTC, wbtcSupply));
 
 		report("Supplied WBTC");
 
-		adapter.borrow(cusdt.market, cusdt.underlying, usdtBorrow);
+		adapter.borrow(abi.encode(cUSDT, USDT, usdtBorrow));
 
 		report("Borrowed USDT");
 	}
 
-	function test_lendingActions_WETH_to_DAI() public {
-		uint256 ethAmount = 10 ether;
-		uint256 collateralUsage = 5000;
-		uint256 debtRatio = 2500;
-		uint256 duration = 30 days;
+	function test_lendingActions_WETH_WBTC() public {
+		simulate(WETH, WBTC, 10 ether, 5000, 2500, 90);
+	}
 
-		Currency collateralMarket = ceth.market;
-		Currency collateralAsset = ceth.underlying;
+	function test_lendingActions_WETH_LINK() public {
+		simulate(WETH, LINK, 10 ether, 5000, 2500, 90);
+	}
+
+	function test_lendingActions_WETH_UNI() public {
+		simulate(WETH, UNI, 10 ether, 5000, 2500, 90);
+	}
+
+	function test_lendingActions_WETH_DAI() public {
+		simulate(WETH, DAI, 10 ether, 5000, 2500, 90);
+	}
+
+	function test_lendingActions_WETH_USDC() public {
+		simulate(WETH, USDC, 10 ether, 5000, 2500, 90);
+	}
+
+	function test_lendingActions_WETH_USDT() public {
+		simulate(WETH, USDT, 10 ether, 5000, 2500, 90);
+	}
+
+	function test_lendingActions_WBTC_WETH() public {
+		simulate(WBTC, WETH, 10 ether, 5000, 2500, 90);
+	}
+
+	function test_lendingActions_WBTC_LINK() public {
+		simulate(WBTC, LINK, 10 ether, 5000, 2500, 90);
+	}
+
+	function test_lendingActions_WBTC_UNI() public {
+		simulate(WBTC, UNI, 10 ether, 5000, 2500, 90);
+	}
+
+	function test_lendingActions_WBTC_DAI() public {
+		simulate(WBTC, DAI, 10 ether, 5000, 2500, 90);
+	}
+
+	function test_lendingActions_WBTC_USDC() public {
+		simulate(WBTC, USDC, 10 ether, 5000, 2500, 90);
+	}
+
+	function test_lendingActions_WBTC_USDT() public {
+		simulate(WBTC, USDT, 10 ether, 5000, 2500, 90);
+	}
+
+	function test_lendingActions_DAI_WETH() public {
+		simulate(DAI, WETH, 10 ether, 5000, 2500, 90);
+	}
+
+	function test_lendingActions_DAI_WBTC() public {
+		simulate(DAI, WBTC, 10 ether, 5000, 2500, 90);
+	}
+
+	function test_lendingActions_DAI_LINK() public {
+		simulate(DAI, LINK, 10 ether, 5000, 2500, 90);
+	}
+
+	function test_lendingActions_DAI_UNI() public {
+		simulate(DAI, UNI, 10 ether, 5000, 2500, 90);
+	}
+
+	function test_lendingActions_DAI_USDC() public {
+		simulate(DAI, USDC, 10 ether, 5000, 2500, 90);
+	}
+
+	function test_lendingActions_DAI_USDT() public {
+		simulate(DAI, USDT, 10 ether, 5000, 2500, 90);
+	}
+
+	function simulate(
+		Currency collateralAsset,
+		Currency borrowAsset,
+		uint256 ethAmount,
+		uint256 collateralUsage,
+		uint256 debtRatio,
+		uint256 duration
+	) internal {
+		Currency collateralMarket = cTokenRegistry.underlyingToCToken(collateralAsset);
 		uint256 collateralUnit = collateralAsset.decimals();
-		uint256 ltv = ceth.ltv;
+		uint256 ltv = adapter.getLtv(collateralMarket);
+		assertGt(ltv, 0);
 
-		Currency borrowMarket = cdai.market;
-		Currency borrowAsset = cdai.underlying;
+		Currency borrowMarket = cTokenRegistry.underlyingToCToken(borrowAsset);
 		uint256 borrowUnit = borrowAsset.decimals();
 
 		(uint256 supplyAmount, uint256 borrowAmount) = getSupplyAndBorrowAmounts(
-			getCompoundPrice(collateralMarket, collateralUnit),
+			adapter.getPrice(collateralMarket),
 			collateralUnit,
-			getCompoundPrice(borrowMarket, borrowUnit),
+			adapter.getPrice(borrowMarket),
 			borrowUnit,
 			ltv,
 			collateralUsage,
@@ -141,127 +199,54 @@ contract CompoundV2AdapterTest is BaseTest {
 
 		deal(collateralAsset, address(adapter), supplyAmount);
 
-		adapter.supply(collateralMarket, collateralAsset, supplyAmount);
-
-		report("Supplied ETH");
-
-		adapter.borrow(borrowMarket, borrowAsset, borrowAmount);
-
-		report("Borrowed DAI");
-
-		vm.warp(vm.getBlockTimestamp() + duration);
-
-		(uint256 cTokenBalance, , uint256 exchangeRate) = getAccountSnapshot(
-			collateralMarket,
-			address(adapter)
+		adapter.supply(abi.encode(collateralMarket, collateralAsset, supplyAmount));
+		assertApproxEqAbs(
+			supplyAmount,
+			adapter.getSupplyBalance(collateralMarket),
+			supplyAmount.percentMul(1)
 		);
+		assertTrue(adapter.checkMembership(collateralMarket));
 
-		uint256 supplyBalance = cTokenBalance.wadMul(exchangeRate);
+		adapter.borrow(abi.encode(borrowMarket, borrowAsset, borrowAmount));
+		assertApproxEqAbs(borrowAmount, adapter.getBorrowBalance(borrowMarket), borrowAmount.percentMul(1));
+		assertTrue(adapter.checkMembership(borrowMarket));
 
-		(, uint256 borrowBalance, ) = getAccountSnapshot(borrowMarket, address(adapter));
+		vm.warp(vm.getBlockTimestamp() + (duration * 1 days));
+
+		uint256 collaterals = adapter.getSupplyBalance(collateralMarket);
+		uint256 debt = adapter.getBorrowBalance(borrowMarket);
 
 		(uint256 repayAmount, uint256 redeemAmount) = getRepayAndRedeemAmounts(
-			supplyBalance,
-			getCompoundPrice(collateralMarket, collateralUnit),
+			collaterals,
+			adapter.getPrice(collateralMarket),
 			collateralUnit,
-			borrowBalance,
-			getCompoundPrice(borrowMarket, borrowUnit),
+			debt,
+			adapter.getPrice(borrowMarket),
 			borrowUnit,
 			ltv,
 			collateralUsage,
 			debtRatio
 		);
 
-		uint256 borrowAssetHoldings = borrowAsset.balanceOf(address(adapter));
+		uint256 borrowBalance = borrowAsset.balanceOf(address(adapter));
+		if (borrowBalance < repayAmount) repayAmount = borrowBalance;
 
-		if (borrowAssetHoldings < repayAmount) repayAmount = borrowAssetHoldings;
+		adapter.repay(abi.encode(borrowMarket, borrowAsset, repayAmount));
+		assertApproxEqAbs(
+			debt - repayAmount,
+			adapter.getBorrowBalance(borrowMarket),
+			(debt - repayAmount).percentMul(1)
+		);
 
-		adapter.repay(borrowMarket, borrowAsset, repayAmount);
-
-		report("Repaid DAI");
-
-		adapter.redeem(collateralMarket, collateralAsset, redeemAmount);
-
-		report("Redeemed ETH");
+		adapter.redeem(abi.encode(collateralMarket, collateralAsset, redeemAmount));
+		assertApproxEqAbs(
+			collaterals - redeemAmount,
+			adapter.getSupplyBalance(collateralMarket),
+			(collaterals - redeemAmount).percentMul(1)
+		);
 	}
 
-	function test_lendingActions_DAI_to_WETH() public {
-		uint256 ethAmount = 10 ether;
-		uint256 collateralUsage = 5000;
-		uint256 debtRatio = 2500;
-		uint256 duration = 30 days;
-
-		Currency collateralMarket = cdai.market;
-		Currency collateralAsset = cdai.underlying;
-		uint256 collateralUnit = collateralAsset.decimals();
-		uint256 ltv = cdai.ltv;
-
-		Currency borrowMarket = ceth.market;
-		Currency borrowAsset = ceth.underlying;
-		uint256 borrowUnit = borrowAsset.decimals();
-
-		(uint256 supplyAmount, uint256 borrowAmount) = getSupplyAndBorrowAmounts(
-			getCompoundPrice(collateralMarket, collateralUnit),
-			collateralUnit,
-			getCompoundPrice(borrowMarket, borrowUnit),
-			borrowUnit,
-			ltv,
-			collateralUsage,
-			ethAmount
-		);
-
-		deal(collateralAsset, address(adapter), supplyAmount);
-
-		adapter.supply(collateralMarket, collateralAsset, supplyAmount);
-
-		report("Supplied DAI");
-
-		adapter.borrow(borrowMarket, borrowAsset, borrowAmount);
-
-		report("Borrowed ETH");
-
-		vm.warp(vm.getBlockTimestamp() + duration);
-
-		(uint256 cTokenBalance, , uint256 exchangeRate) = getAccountSnapshot(
-			collateralMarket,
-			address(adapter)
-		);
-
-		uint256 supplyBalance = cTokenBalance.wadMul(exchangeRate);
-
-		(, uint256 borrowBalance, ) = getAccountSnapshot(borrowMarket, address(adapter));
-
-		(uint256 repayAmount, uint256 redeemAmount) = getRepayAndRedeemAmounts(
-			supplyBalance,
-			getCompoundPrice(collateralMarket, collateralUnit),
-			collateralUnit,
-			borrowBalance,
-			getCompoundPrice(borrowMarket, borrowUnit),
-			borrowUnit,
-			ltv,
-			collateralUsage,
-			debtRatio
-		);
-
-		uint256 borrowAssetHoldings = borrowAsset.balanceOf(address(adapter));
-
-		if (borrowAssetHoldings < repayAmount) repayAmount = borrowAssetHoldings;
-
-		adapter.repay(borrowMarket, borrowAsset, repayAmount);
-
-		report("Repaid ETH");
-
-		adapter.redeem(collateralMarket, collateralAsset, redeemAmount);
-
-		report("Redeemed DAI");
-	}
-
-	function report(string memory title) internal {
-		(uint256 liquidity, uint256 shortfall) = getAccountLiquidity(address(adapter));
-
-		assertGt(liquidity, 0);
-		assertEq(shortfall, 0);
-
+	function report(string memory title) internal view {
 		(
 			uint256 totalCollateral,
 			uint256 totalLiability,
@@ -270,9 +255,6 @@ contract CompoundV2AdapterTest is BaseTest {
 		) = adapter.getAccountLiquidity();
 
 		console.log(title);
-		console.log("");
-		console.log("liquidity:", liquidity);
-		console.log("shortfall:", shortfall);
 		console.log("");
 		console.log("totalCollateral:", totalCollateral);
 		console.log("totalLiability:", totalLiability);

@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {console2 as console} from "forge-std/Test.sol";
 import {Currency, CurrencyLibrary} from "src/types/Currency.sol";
 import {MockAaveV3Adapter} from "src/mocks/MockAaveV3Adapter.sol";
-import {AaveMarket} from "test/shared/states/DataTypes.sol";
 import {BaseTest} from "test/shared/BaseTest.t.sol";
 
 // forge test -vv --match-path test/modules/adapters/lenders/AaveV3Adapter.t.sol
@@ -14,15 +12,8 @@ contract AaveV3AdapterTest is BaseTest {
 
 	MockAaveV3Adapter adapter;
 
-	AaveMarket wethMarket;
-	AaveMarket daiMarket;
-
-	Currency[] rewardAssets;
-
 	function setUp() public virtual override {
 		_setUp(ETHEREUM_CHAIN_ID, true);
-
-		deployConfigurations();
 
 		adapter = new MockAaveV3Adapter(
 			address(resolver),
@@ -31,52 +22,248 @@ contract AaveV3AdapterTest is BaseTest {
 			aaveV3Config.incentives,
 			aaveV3Config.oracle,
 			aaveV3Config.denomination,
+			feedRegistry.getFeed(WETH, USD),
 			WRAPPED_NATIVE,
 			WETH
 		);
 
-		wethMarket = getAaveMarket(WETH, true);
-		daiMarket = getAaveMarket(DAI, true);
-
-		rewardAssets = adapter.getRewardsList();
+		vm.label(address(adapter), "MockAaveV3Adapter");
 	}
 
 	function test_enableMarket() public {
-		deal(wethMarket.underlying, address(adapter), 1 ether);
+		deal(WETH, address(adapter), 1 ether);
 
-		adapter.supply(wethMarket.aToken, wethMarket.underlying, 1 ether);
+		adapter.supply(abi.encode(WETH, 1 ether));
 
-		assertTrue(adapter.isSupplying(wethMarket.underlying));
+		assertTrue(adapter.isSupplying(WETH));
 
-		adapter.exitMarket(wethMarket.underlying);
+		adapter.exitMarket(abi.encode(WETH));
 
-		assertTrue(!adapter.isSupplying(wethMarket.underlying));
+		assertFalse(adapter.isSupplying(WETH));
 
-		adapter.enterMarket(wethMarket.underlying);
+		adapter.enterMarket(abi.encode(WETH));
 
-		assertTrue(adapter.isSupplying(wethMarket.underlying));
+		assertTrue(adapter.isSupplying(WETH));
 	}
 
-	function test_lendingActions_WETH_to_DAI() public {
-		uint256 ethAmount = 10 ether;
-		uint256 collateralUsage = 5000;
-		uint256 debtRatio = 2500;
-		uint256 duration = 30 days;
+	function test_lendingActions_WETH_WBTC() public {
+		simulate(WETH, WBTC, 10 ether, 5000, 2500, 60);
+	}
 
-		Currency collateralAsset = wethMarket.underlying;
-		Currency aToken = wethMarket.aToken;
+	function test_lendingActions_WETH_WSTETH() public {
+		simulate(WETH, wstETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WETH_CBETH() public {
+		simulate(WETH, cbETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WETH_RETH() public {
+		simulate(WETH, rETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WETH_LINK() public {
+		simulate(WETH, LINK, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WETH_DAI() public {
+		simulate(WETH, DAI, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WETH_USDC() public {
+		simulate(WETH, USDC, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WETH_USDT() public {
+		simulate(WETH, USDT, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WBTC_WETH() public {
+		simulate(WBTC, WETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WBTC_WSTETH() public {
+		simulate(WBTC, wstETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WBTC_CBETH() public {
+		simulate(WBTC, cbETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WBTC_RETH() public {
+		simulate(WBTC, rETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WBTC_LINK() public {
+		simulate(WBTC, LINK, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WBTC_DAI() public {
+		simulate(WBTC, DAI, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WBTC_USDC() public {
+		simulate(WBTC, USDC, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WBTC_USDT() public {
+		simulate(WBTC, USDT, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WSTETH_WETH() public {
+		simulate(wstETH, WETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WSTETH_CBETH() public {
+		simulate(wstETH, cbETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WSTETH_RETH() public {
+		simulate(wstETH, rETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WSTETH_WBTC() public {
+		simulate(wstETH, WBTC, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WSTETH_LINK() public {
+		simulate(wstETH, LINK, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WSTETH_DAI() public {
+		simulate(wstETH, DAI, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WSTETH_USDC() public {
+		simulate(wstETH, USDC, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_WSTETH_USDT() public {
+		simulate(wstETH, USDT, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_CBETH_WETH() public {
+		simulate(cbETH, WETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_CBETH_WSTETH() public {
+		simulate(cbETH, wstETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_CBETH_RETH() public {
+		simulate(cbETH, rETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_CBETH_WBTC() public {
+		simulate(cbETH, WBTC, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_CBETH_LINK() public {
+		simulate(cbETH, LINK, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_CBETH_DAI() public {
+		simulate(cbETH, DAI, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_CBETH_USDC() public {
+		simulate(cbETH, USDC, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_CBETH_USDT() public {
+		simulate(cbETH, USDT, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_RETH_WETH() public {
+		simulate(rETH, WETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_RETH_WSTETH() public {
+		simulate(rETH, wstETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_RETH_CBETH() public {
+		simulate(rETH, cbETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_RETH_WBTC() public {
+		simulate(rETH, WBTC, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_RETH_LINK() public {
+		simulate(rETH, LINK, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_RETH_DAI() public {
+		simulate(rETH, DAI, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_RETH_USDC() public {
+		simulate(rETH, USDC, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_RETH_USDT() public {
+		simulate(rETH, USDT, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_DAI_WETH() public {
+		simulate(DAI, WETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_DAI_WSTETH() public {
+		simulate(DAI, wstETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_DAI_CBETH() public {
+		simulate(DAI, cbETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_DAI_RETH() public {
+		simulate(DAI, rETH, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_DAI_WBTC() public {
+		simulate(DAI, WBTC, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_DAI_LINK() public {
+		simulate(DAI, LINK, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_DAI_USDC() public {
+		simulate(DAI, USDC, 10 ether, 5000, 2500, 60);
+	}
+
+	function test_lendingActions_DAI_USDT() public {
+		simulate(DAI, USDT, 10 ether, 5000, 2500, 60);
+	}
+
+	function simulate(
+		Currency collateralAsset,
+		Currency borrowAsset,
+		uint256 ethAmount,
+		uint256 collateralUsage,
+		uint256 debtRatio,
+		uint256 duration
+	) internal {
+		ethAmount = bound(ethAmount, 1 ether, 20 ether);
+		collateralUsage = bound(collateralUsage, 1000, 9000);
+		debtRatio = bound(debtRatio, 1000, 10000);
+		duration = bound(duration, 1, 90);
+
+		Currency aToken = adapter.underlyingToAToken(collateralAsset);
+		uint256 ltv = adapter.getLtv(collateralAsset);
 		uint256 collateralUnit = collateralAsset.decimals();
 
-		Currency borrowAsset = daiMarket.underlying;
-		Currency vdToken = daiMarket.vdToken;
+		Currency vdToken = adapter.underlyingToVDebtToken(borrowAsset);
 		uint256 borrowUnit = borrowAsset.decimals();
 
 		(uint256 supplyAmount, uint256 borrowAmount) = getSupplyAndBorrowAmounts(
-			getAavePrice(collateralAsset, true),
+			adapter.getPrice(collateralAsset),
 			collateralUnit,
-			getAavePrice(borrowAsset, true),
+			adapter.getPrice(borrowAsset),
 			borrowUnit,
-			wethMarket.ltv,
+			ltv,
 			collateralUsage,
 			ethAmount
 		);
@@ -84,8 +271,7 @@ contract AaveV3AdapterTest is BaseTest {
 		deal(collateralAsset, address(adapter), supplyAmount);
 
 		adapter.supply(abi.encode(collateralAsset, supplyAmount));
-
-		report("Supply");
+		assertApproxEqAbs(supplyAmount, aToken.balanceOf(address(adapter)), 10);
 
 		assertTrue(
 			adapter.isAssetIn(collateralAsset) &&
@@ -94,79 +280,7 @@ contract AaveV3AdapterTest is BaseTest {
 		);
 
 		adapter.borrow(abi.encode(borrowAsset, borrowAmount));
-
-		report("Borrow");
-
-		assertTrue(
-			adapter.isAssetIn(borrowAsset) &&
-				!adapter.isSupplying(borrowAsset) &&
-				adapter.isBorrowing(borrowAsset)
-		);
-
-		vm.warp(vm.getBlockTimestamp() + duration);
-
-		(uint256 repayAmount, uint256 redeemAmount) = getRepayAndRedeemAmounts(
-			aToken.balanceOf(address(adapter)),
-			getAavePrice(collateralAsset, true),
-			collateralUnit,
-			vdToken.balanceOf(address(adapter)),
-			getAavePrice(borrowAsset, true),
-			borrowUnit,
-			wethMarket.ltv,
-			collateralUsage,
-			debtRatio
-		);
-
-		uint256 borrowBalance = borrowAsset.balanceOf(address(adapter));
-
-		if (borrowBalance < repayAmount) repayAmount = borrowBalance;
-
-		adapter.repay(abi.encode(borrowAsset, repayAmount));
-
-		report("Repay");
-
-		adapter.redeem(abi.encode(collateralAsset, redeemAmount));
-
-		report("Redeem");
-	}
-
-	function test_lendingActions_DAI_to_WETH() public {
-		uint256 ethAmount = 10 ether;
-		uint256 collateralUsage = 5000;
-		uint256 debtRatio = 2500;
-		uint256 duration = 30 days;
-
-		Currency collateralAsset = daiMarket.underlying;
-		Currency aToken = daiMarket.aToken;
-		uint256 collateralUnit = collateralAsset.decimals();
-
-		Currency borrowAsset = wethMarket.underlying;
-		Currency vdToken = wethMarket.vdToken;
-		uint256 borrowUnit = borrowAsset.decimals();
-
-		(uint256 supplyAmount, uint256 borrowAmount) = getSupplyAndBorrowAmounts(
-			getAavePrice(collateralAsset, true),
-			collateralUnit,
-			getAavePrice(borrowAsset, true),
-			borrowUnit,
-			daiMarket.ltv,
-			collateralUsage,
-			ethAmount
-		);
-
-		deal(collateralAsset, address(adapter), supplyAmount);
-
-		adapter.supply(abi.encode(collateralAsset, supplyAmount));
-
-		assertTrue(
-			adapter.isAssetIn(collateralAsset) &&
-				adapter.isSupplying(collateralAsset) &&
-				!adapter.isBorrowing(collateralAsset)
-		);
-
-		report("Supply");
-
-		adapter.borrow(abi.encode(borrowAsset, borrowAmount));
+		assertApproxEqAbs(borrowAmount, vdToken.balanceOf(address(adapter)), 10);
 
 		assertTrue(
 			adapter.isAssetIn(borrowAsset) &&
@@ -174,53 +288,30 @@ contract AaveV3AdapterTest is BaseTest {
 				adapter.isBorrowing(borrowAsset)
 		);
 
-		report("Borrow");
+		vm.warp(vm.getBlockTimestamp() + (duration * 1 days));
 
-		vm.warp(vm.getBlockTimestamp() + duration);
+		uint256 collaterals = aToken.balanceOf(address(adapter));
+		uint256 debt = vdToken.balanceOf(address(adapter));
 
 		(uint256 repayAmount, uint256 redeemAmount) = getRepayAndRedeemAmounts(
-			aToken.balanceOf(address(adapter)),
-			getAavePrice(collateralAsset, true),
+			collaterals,
+			adapter.getPrice(collateralAsset),
 			collateralUnit,
-			vdToken.balanceOf(address(adapter)),
-			getAavePrice(borrowAsset, true),
+			debt,
+			adapter.getPrice(borrowAsset),
 			borrowUnit,
-			daiMarket.ltv,
+			ltv,
 			collateralUsage,
 			debtRatio
 		);
 
 		uint256 borrowBalance = borrowAsset.balanceOf(address(adapter));
-
 		if (borrowBalance < repayAmount) repayAmount = borrowBalance;
 
 		adapter.repay(abi.encode(borrowAsset, repayAmount));
-
-		report("Repay");
+		assertApproxEqAbs(debt - repayAmount, vdToken.balanceOf(address(adapter)), 10);
 
 		adapter.redeem(abi.encode(collateralAsset, redeemAmount));
-
-		report("Redeem");
-	}
-
-	function report(string memory title) internal view {
-		(
-			uint256 totalCollateral,
-			uint256 totalDebt,
-			uint256 availableBorrows,
-			uint256 currentLiquidationThreshold,
-			uint256 ltv,
-			uint256 healthFactor
-		) = adapter.getUserAccountData();
-
-		console.log(title);
-		console.log("");
-		console.log("totalCollateral:", totalCollateral);
-		console.log("totalDebt:", totalDebt);
-		console.log("availableBorrows:", availableBorrows);
-		console.log("currentLiquidationThreshold:", currentLiquidationThreshold);
-		console.log("ltv:", ltv);
-		console.log("healthFactor:", healthFactor);
-		console.log("");
+		assertApproxEqAbs(collaterals - redeemAmount, aToken.balanceOf(address(adapter)), 10);
 	}
 }
