@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {ILender} from "src/interfaces/ILender.sol";
+import {BytesLib} from "src/libraries/BytesLib.sol";
 import {Errors} from "src/libraries/Errors.sol";
 import {FullMath} from "src/libraries/FullMath.sol";
 import {PercentageMath} from "src/libraries/PercentageMath.sol";
@@ -14,6 +15,7 @@ import {BaseLender} from "./BaseLender.sol";
 /// @notice Provides the functionality of making calls to Aave-V3 contracts for the Client
 
 contract AaveV3Adapter is ILender, BaseLender {
+	using BytesLib for bytes;
 	using CurrencyLibrary for Currency;
 	using FullMath for uint256;
 	using PercentageMath for uint256;
@@ -181,19 +183,15 @@ contract AaveV3Adapter is ILender, BaseLender {
 		(, liquidityIndex, , , , , lastUpdateTimestamp, , , , , , , , ) = getReserveData(lendingPool, asset);
 	}
 
-	function enableMarket(bytes calldata params) public payable {
-		Currency asset;
-		bool useAsCollateral;
-
-		assembly ("memory-safe") {
-			asset := calldataload(params.offset)
-			useAsCollateral := calldataload(add(params.offset, 0x20))
-		}
-
-		setAsCollateral(LENDING_POOL, asset, useAsCollateral);
+	function enterMarket(bytes calldata params) public payable {
+		setAsCollateral(LENDING_POOL, params.toAddress(), true);
 	}
 
-	function setAsCollateral(address lendingPool, Currency asset, bool useAsCollateral) internal {
+	function exitMarket(bytes calldata params) public payable {
+		setAsCollateral(LENDING_POOL, params.toAddress(), false);
+	}
+
+	function setAsCollateral(address lendingPool, address asset, bool useAsCollateral) internal {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 

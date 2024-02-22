@@ -103,8 +103,12 @@ contract MockAaveV2Adapter is AaveV2Adapter {
 		balanceNew = market.balanceOfSelf();
 	}
 
-	function enableMarket(Currency asset, bool enable) public payable {
-		this.enableMarket(abi.encode(asset, enable));
+	function enterMarket(Currency asset) public payable {
+		this.enterMarket(abi.encode(asset));
+	}
+
+	function exitMarket(Currency asset) public payable {
+		this.exitMarket(abi.encode(asset));
 	}
 
 	function claimRewards() public payable {

@@ -36,9 +36,11 @@ interface ILender {
 		bytes calldata params
 	) external payable returns (uint128 reserveIndex, uint40 lastAccrualTime);
 
-	function claimRewards(bytes calldata params) external payable;
+	function enterMarket(bytes calldata params) external payable;
 
-	function enableMarket(bytes calldata params) external payable;
+	function exitMarket(bytes calldata params) external payable;
+
+	function claimRewards(bytes calldata params) external payable;
 
 	function getReserveData(bytes calldata params) external view returns (ReserveData memory reserveData);
 }
