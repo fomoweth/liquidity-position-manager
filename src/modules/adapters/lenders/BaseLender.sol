@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Errors} from "src/libraries/Errors.sol";
+import {FullMath} from "src/libraries/FullMath.sol";
 import {Currency} from "src/types/Currency.sol";
 import {BaseModule} from "../../BaseModule.sol";
 
@@ -15,9 +16,7 @@ abstract contract BaseLender is BaseModule {
 		NotSupported,
 		NotCollateral,
 		NotBorrowable,
-		NotActive,
-		ExceededSupplyCap,
-		ExceededBorrowCap
+		NotActive
 	}
 
 	address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
@@ -47,20 +46,62 @@ abstract contract BaseLender is BaseModule {
 		//
 	}
 
-	function verifyReserve(Currency market, Currency asset, uint256 amount, bool isCollateral) internal view {
-		_validate(_verifyReserve(market, asset, amount, isCollateral));
+	function derivePrice(
+		uint256 baseAnswer,
+		uint256 quoteAnswer,
+		uint8 baseDecimals,
+		uint8 quoteDecimals,
+		uint8 assetDecimals
+	) internal pure returns (uint256) {
+		unchecked {
+			if (baseAnswer == 0 || quoteAnswer == 0) return 0;
+
+			return
+				FullMath.mulDiv(
+					scalePrice(baseAnswer, baseDecimals, assetDecimals),
+					10 ** assetDecimals,
+					scalePrice(quoteAnswer, quoteDecimals, assetDecimals)
+				);
+		}
+	}
+
+	function scalePrice(
+		uint256 answer,
+		uint8 feedDecimals,
+		uint8 assetDecimals
+	) internal pure returns (uint256 scaled) {
+		assembly ("memory-safe") {
+			switch or(iszero(answer), eq(feedDecimals, assetDecimals))
+			case 0x00 {
+				switch gt(feedDecimals, assetDecimals)
+				case 0x00 {
+					scaled := mul(answer, exp(10, sub(assetDecimals, feedDecimals)))
+				}
+				default {
+					scaled := div(answer, exp(10, sub(feedDecimals, assetDecimals)))
+				}
+			}
+			default {
+				scaled := answer
+			}
+		}
+	}
+
+	function verifyReserve(
+		Currency market,
+		Currency asset,
+		uint256 amount,
+		bool useAsCollateral
+	) internal view {
+		_validate(_verifyReserve(market, asset, amount, useAsCollateral));
 	}
 
 	function _verifyReserve(
 		Currency market,
 		Currency asset,
 		uint256 amount,
-		bool isCollateral
+		bool useAsCollateral
 	) internal view virtual returns (ReserveError);
-
-	function _isCollateral(Currency market, Currency asset) internal view virtual returns (bool);
-
-	function _isBorrowable(Currency market, Currency asset) internal view virtual returns (bool);
 
 	function _validate(ReserveError err) private pure {
 		if (err == ReserveError.NoError) return;
@@ -70,7 +111,5 @@ abstract contract BaseLender is BaseModule {
 		else if (err == ReserveError.NotCollateral) revert Errors.NotCollateral();
 		else if (err == ReserveError.NotBorrowable) revert Errors.NotBorrowable();
 		else if (err == ReserveError.NotActive) revert Errors.NotActive();
-		else if (err == ReserveError.ExceededSupplyCap) revert Errors.ExceededSupplyCap();
-		else if (err == ReserveError.ExceededBorrowCap) revert Errors.ExceededBorrowCap();
 	}
 }

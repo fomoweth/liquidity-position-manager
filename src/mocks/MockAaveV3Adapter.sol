@@ -119,7 +119,15 @@ contract MockAaveV3Adapter is AaveV3Adapter {
 		return getPendingRewards(INCENTIVES, rewardAsset);
 	}
 
-	function getRewardsList() public view returns (Currency[] memory rewardAssets) {
+	function getMarketsIn() public view returns (Currency[] memory) {
+		return getMarketsIn(LENDING_POOL, INCENTIVES, false);
+	}
+
+	function getReservesList() public view returns (Currency[] memory) {
+		return getReservesList(LENDING_POOL);
+	}
+
+	function getRewardsList() public view returns (Currency[] memory) {
 		return getRewardsList(INCENTIVES);
 	}
 
@@ -178,14 +186,6 @@ contract MockAaveV3Adapter is AaveV3Adapter {
 
 	function getPriceFeed(Currency asset) public view returns (address) {
 		return getPriceFeed(PRICE_ORACLE, asset);
-	}
-
-	function isCollateral(Currency market, Currency asset) public view returns (bool) {
-		return _isCollateral(market, asset);
-	}
-
-	function isBorrowable(Currency market, Currency asset) public view returns (bool) {
-		return _isBorrowable(market, asset);
 	}
 
 	function isAssetIn(Currency asset) public view returns (bool) {

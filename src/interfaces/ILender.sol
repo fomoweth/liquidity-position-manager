@@ -10,10 +10,10 @@ interface ILender {
 		address priceFeed;
 		uint256 price;
 		uint256 ltv;
-		uint128 supplyRate;
-		uint128 borrowRate;
-		uint128 supplyIndex;
-		uint128 borrowIndex;
+		uint256 supplyRate;
+		uint256 borrowRate;
+		uint256 supplyIndex;
+		uint256 borrowIndex;
 		uint40 lastAccrualTime;
 		bool isCollateral;
 		bool isBorrowable;

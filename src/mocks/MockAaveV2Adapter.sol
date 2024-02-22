@@ -116,18 +116,19 @@ contract MockAaveV2Adapter is AaveV2Adapter {
 	}
 
 	function getPendingRewards() public view returns (uint256) {
-		return getPendingRewards(INCENTIVES, abi.encode(getMarketsIn(LENDING_POOL)));
+		return this.getPendingRewards("0x");
+		// return getPendingRewards(INCENTIVES, abi.encode(getMarketsIn(LENDING_POOL)));
 	}
 
-	function getMarketsIn() public view returns (Currency[] memory markets) {
+	function getMarketsIn() public view returns (Currency[] memory) {
 		return getMarketsIn(LENDING_POOL);
 	}
 
-	function getReservesList() public view returns (Currency[] memory assets) {
+	function getReservesList() public view returns (Currency[] memory) {
 		return getReservesList(LENDING_POOL);
 	}
 
-	function getRewardAsset() public view returns (Currency rewardAsset) {
+	function getRewardAsset() public view returns (Currency) {
 		return getRewardAsset(INCENTIVES);
 	}
 
@@ -183,14 +184,6 @@ contract MockAaveV2Adapter is AaveV2Adapter {
 
 	function getPriceFeed(Currency asset) public view returns (address) {
 		return getPriceFeed(PRICE_ORACLE, asset);
-	}
-
-	function isCollateral(Currency market, Currency asset) public view returns (bool) {
-		return _isCollateral(market, asset);
-	}
-
-	function isBorrowable(Currency market, Currency asset) public view returns (bool) {
-		return _isBorrowable(market, asset);
 	}
 
 	function isAssetIn(Currency asset) public view returns (bool) {

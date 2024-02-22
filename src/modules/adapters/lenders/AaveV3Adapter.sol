@@ -6,7 +6,6 @@ import {BytesLib} from "src/libraries/BytesLib.sol";
 import {Errors} from "src/libraries/Errors.sol";
 import {FullMath} from "src/libraries/FullMath.sol";
 import {PercentageMath} from "src/libraries/PercentageMath.sol";
-import {SafeCast} from "src/libraries/SafeCast.sol";
 import {WadRayMath} from "src/libraries/WadRayMath.sol";
 import {Currency, CurrencyLibrary} from "src/types/Currency.sol";
 import {BaseLender} from "./BaseLender.sol";
@@ -19,7 +18,6 @@ contract AaveV3Adapter is ILender, BaseLender {
 	using CurrencyLibrary for Currency;
 	using FullMath for uint256;
 	using PercentageMath for uint256;
-	using SafeCast for uint256;
 	using WadRayMath for uint256;
 
 	uint256 internal constant BORROW_MASK					=	0x5555555555555555555555555555555555555555555555555555555555555555; // prettier-ignore
@@ -250,14 +248,15 @@ contract AaveV3Adapter is ILender, BaseLender {
 		}
 
 		uint256 configuration;
-		uint128 isolationModeTotalDebt;
+		uint256 currentLiquidityRate;
+		uint256 currentVariableBorrowRate;
 
 		(
 			configuration,
 			reserveData.supplyIndex,
-			reserveData.supplyRate,
+			currentLiquidityRate,
 			reserveData.borrowIndex,
-			reserveData.borrowRate,
+			currentVariableBorrowRate,
 			,
 			reserveData.lastAccrualTime,
 			,
@@ -267,16 +266,22 @@ contract AaveV3Adapter is ILender, BaseLender {
 			,
 			,
 			,
-			isolationModeTotalDebt
+
 		) = getReserveData(lendingPool, asset);
 
 		reserveData.priceFeed = getPriceFeed(oracle, asset);
 		reserveData.price = getAssetPrice(oracle, asset);
 
+		reserveData.supplyRate = currentLiquidityRate.rayToWad();
+		reserveData.borrowRate = currentVariableBorrowRate.rayToWad();
 		reserveData.ltv = getValue(configuration, LTV_MASK, 0);
 		reserveData.isCollateral = isCollateralAsset(configuration);
 		reserveData.isBorrowable = isBorrowAsset(configuration);
 		reserveData.isActive = isReserveActive(configuration);
+	}
+
+	function getPendingRewards(bytes calldata params) external view returns (uint256) {
+		return getPendingRewards(INCENTIVES, Currency.wrap(params.toAddress()));
 	}
 
 	function getPendingRewards(
@@ -609,16 +614,6 @@ contract AaveV3Adapter is ILender, BaseLender {
 		}
 
 		return ReserveError.NoError;
-	}
-
-	function _isCollateral(Currency, Currency asset) internal view virtual override returns (bool) {
-		uint256 configuration = getConfiguration(LENDING_POOL, asset);
-		return isCollateralAsset(configuration) && isReserveActive(configuration);
-	}
-
-	function _isBorrowable(Currency, Currency asset) internal view virtual override returns (bool) {
-		uint256 configuration = getConfiguration(LENDING_POOL, asset);
-		return isBorrowAsset(configuration) && isReserveActive(configuration);
 	}
 
 	function isCollateralAsset(uint256 configuration) internal pure returns (bool) {

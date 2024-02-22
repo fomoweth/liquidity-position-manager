@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Currency} from "src/types/Currency.sol";
-
 /// @title BytesLib
 /// @dev implementation from: https://github.com/Uniswap/universal-router/blob/main/contracts/modules/uniswap/v3/BytesLib.sol
 
