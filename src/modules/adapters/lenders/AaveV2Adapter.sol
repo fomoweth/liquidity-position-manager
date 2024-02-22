@@ -45,9 +45,10 @@ contract AaveV2Adapter is ILender, BaseLender {
 		address _incentives,
 		address _priceOracle,
 		address _denomination,
+		address _ethUsdFeed,
 		Currency _wrappedNative,
 		Currency _weth
-	) BaseLender(_resolver, _protocol, _denomination, _wrappedNative, _weth) {
+	) BaseLender(_resolver, _protocol, _denomination, _ethUsdFeed, _wrappedNative, _weth) {
 		LENDING_POOL = _lendingPool;
 		INCENTIVES = _incentives;
 		PRICE_ORACLE = _priceOracle;
@@ -166,14 +167,14 @@ contract AaveV2Adapter is ILender, BaseLender {
 	}
 
 	function enterMarket(bytes calldata params) public payable {
-		setAsCollateral(LENDING_POOL, params.toAddress(), true);
+		setAsCollateral(LENDING_POOL, Currency.wrap(params.toAddress()), true);
 	}
 
 	function exitMarket(bytes calldata params) public payable {
-		setAsCollateral(LENDING_POOL, params.toAddress(), false);
+		setAsCollateral(LENDING_POOL, Currency.wrap(params.toAddress()), false);
 	}
 
-	function setAsCollateral(address lendingPool, address asset, bool useAsCollateral) internal {
+	function setAsCollateral(address lendingPool, Currency asset, bool useAsCollateral) internal {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
@@ -225,9 +226,6 @@ contract AaveV2Adapter is ILender, BaseLender {
 	}
 
 	function getReserveData(bytes calldata params) external view returns (ReserveData memory reserveData) {
-		address lendingPool = LENDING_POOL;
-		address oracle = PRICE_ORACLE;
-
 		Currency asset;
 
 		assembly ("memory-safe") {
@@ -251,18 +249,20 @@ contract AaveV2Adapter is ILender, BaseLender {
 			reserveData.borrowMarket,
 			,
 
-		) = getReserveData(lendingPool, asset);
+		) = getReserveData(LENDING_POOL, asset);
 
 		reserveData.supplyRate = currentLiquidityRate.rayToWad();
 		reserveData.borrowRate = currentVariableBorrowRate.rayToWad();
 
-		reserveData.priceFeed = getPriceFeed(oracle, asset);
-		reserveData.price = getAssetPrice(oracle, asset);
+		reserveData.priceFeed = getPriceFeed(PRICE_ORACLE, asset);
+		reserveData.price = getAssetPrice(asset);
 
 		reserveData.ltv = getValue(configuration, LTV_MASK, 0);
+
+		bool isActive = isReserveActive(configuration);
 		reserveData.isCollateral = isCollateralAsset(configuration);
-		reserveData.isBorrowable = isBorrowAsset(configuration);
-		reserveData.isActive = isReserveActive(configuration);
+		reserveData.canSupply = isCollateralAsset(configuration) && isActive;
+		reserveData.canBorrow = isBorrowAsset(configuration) && isActive;
 	}
 
 	function getPendingRewards(bytes calldata) external view returns (uint256) {
@@ -379,29 +379,6 @@ contract AaveV2Adapter is ILender, BaseLender {
 
 			rewardAsset := mload(0x00)
 		}
-	}
-
-	function marketToUnderlying(Currency market) internal view returns (Currency underlying) {
-		assembly ("memory-safe") {
-			let ptr := mload(0x40)
-
-			mstore(ptr, 0xb16a19de00000000000000000000000000000000000000000000000000000000) // UNDERLYING_ASSET_ADDRESS()
-
-			if iszero(staticcall(gas(), market, ptr, 0x04, 0x00, 0x20)) {
-				returndatacopy(ptr, 0x00, returndatasize())
-				revert(ptr, returndatasize())
-			}
-
-			underlying := mload(0x00)
-		}
-	}
-
-	function underlyingToAToken(Currency underlying) internal view returns (Currency aToken) {
-		(, , , , , , , aToken, , , , ) = getReserveData(LENDING_POOL, underlying);
-	}
-
-	function underlyingToVDebtToken(Currency underlying) internal view returns (Currency vdToken) {
-		(, , , , , , , , , vdToken, , ) = getReserveData(LENDING_POOL, underlying);
 	}
 
 	function getReserveData(
@@ -522,11 +499,20 @@ contract AaveV2Adapter is ILender, BaseLender {
 		}
 	}
 
+	function getAssetPrice(Currency asset) internal view returns (uint256) {
+		if (asset == WETH) return WadRayMath.WAD;
+
+		return
+			denomination != ETH
+				? derivePrice(getAssetPrice(PRICE_ORACLE, asset), getETHPrice(), 8, 8, 18)
+				: getAssetPrice(PRICE_ORACLE, asset);
+	}
+
 	function getAssetPrice(address oracle, Currency asset) internal view returns (uint256 price) {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
-			mstore(ptr, 0xb3596f0700000000000000000000000000000000000000000000000000000000) // getAssetPrice(address)
+			mstore(ptr, 0xb3596f0700000000000000000000000000000000000000000000000000000000)
 			mstore(add(ptr, 0x04), and(asset, 0xffffffffffffffffffffffffffffffffffffffff))
 
 			if iszero(staticcall(gas(), oracle, ptr, 0x24, 0x00, 0x20)) {

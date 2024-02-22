@@ -16,8 +16,8 @@ interface ILender {
 		uint256 borrowIndex;
 		uint40 lastAccrualTime;
 		bool isCollateral;
-		bool isBorrowable;
-		bool isActive;
+		bool canSupply;
+		bool canBorrow;
 	}
 
 	function supply(

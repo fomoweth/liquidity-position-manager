@@ -14,6 +14,7 @@ contract MockAaveV2Adapter is AaveV2Adapter {
 		address _incentives,
 		address _priceOracle,
 		address _denomination,
+		address _ethUsdFeed,
 		Currency _wrappedNative,
 		Currency _weth
 	)
@@ -24,92 +25,11 @@ contract MockAaveV2Adapter is AaveV2Adapter {
 			_incentives,
 			_priceOracle,
 			_denomination,
+			_ethUsdFeed,
 			_wrappedNative,
 			_weth
 		)
 	{}
-
-	function supply(
-		Currency market,
-		Currency asset,
-		uint256 amount
-	)
-		public
-		payable
-		returns (uint128 liquidityIndex, uint40 lastUpdateTimestamp, uint256 balancePrior, uint256 balanceNew)
-	{
-		balancePrior = market.balanceOfSelf();
-
-		(liquidityIndex, lastUpdateTimestamp) = this.supply(abi.encode(asset, amount));
-
-		balanceNew = market.balanceOfSelf();
-	}
-
-	function borrow(
-		Currency market,
-		Currency asset,
-		uint256 amount
-	)
-		public
-		payable
-		returns (
-			uint128 variableBorrowIndex,
-			uint40 lastUpdateTimestamp,
-			uint256 balancePrior,
-			uint256 balanceNew
-		)
-	{
-		balancePrior = market.balanceOfSelf();
-
-		(variableBorrowIndex, lastUpdateTimestamp) = this.borrow(abi.encode(asset, amount));
-
-		balanceNew = market.balanceOfSelf();
-	}
-
-	function repay(
-		Currency market,
-		Currency asset,
-		uint256 amount
-	)
-		public
-		payable
-		returns (
-			uint128 variableBorrowIndex,
-			uint40 lastUpdateTimestamp,
-			uint256 balancePrior,
-			uint256 balanceNew
-		)
-	{
-		balancePrior = market.balanceOfSelf();
-
-		(variableBorrowIndex, lastUpdateTimestamp) = this.repay(abi.encode(asset, amount));
-
-		balanceNew = market.balanceOfSelf();
-	}
-
-	function redeem(
-		Currency market,
-		Currency asset,
-		uint256 amount
-	)
-		public
-		payable
-		returns (uint128 liquidityIndex, uint40 lastUpdateTimestamp, uint256 balancePrior, uint256 balanceNew)
-	{
-		balancePrior = market.balanceOfSelf();
-
-		(liquidityIndex, lastUpdateTimestamp) = this.redeem(abi.encode(asset, amount));
-
-		balanceNew = market.balanceOfSelf();
-	}
-
-	function enterMarket(Currency asset) public payable {
-		this.enterMarket(abi.encode(asset));
-	}
-
-	function exitMarket(Currency asset) public payable {
-		this.exitMarket(abi.encode(asset));
-	}
 
 	function claimRewards() public payable {
 		this.claimRewards("0x");
@@ -117,7 +37,6 @@ contract MockAaveV2Adapter is AaveV2Adapter {
 
 	function getPendingRewards() public view returns (uint256) {
 		return this.getPendingRewards("0x");
-		// return getPendingRewards(INCENTIVES, abi.encode(getMarketsIn(LENDING_POOL)));
 	}
 
 	function getMarketsIn() public view returns (Currency[] memory) {
@@ -130,6 +49,33 @@ contract MockAaveV2Adapter is AaveV2Adapter {
 
 	function getRewardAsset() public view returns (Currency) {
 		return getRewardAsset(INCENTIVES);
+	}
+
+	function underlyingToAToken(Currency underlying) public view returns (Currency aToken) {
+		(, , , , , , , aToken, , , , ) = getReserveData(LENDING_POOL, underlying);
+	}
+
+	function underlyingToVDebtToken(Currency underlying) public view returns (Currency vdToken) {
+		(, , , , , , , , , vdToken, , ) = getReserveData(LENDING_POOL, underlying);
+	}
+
+	function marketToUnderlying(Currency market) public view returns (Currency underlying) {
+		assembly ("memory-safe") {
+			let ptr := mload(0x40)
+
+			mstore(ptr, 0xb16a19de00000000000000000000000000000000000000000000000000000000) // UNDERLYING_ASSET_ADDRESS()
+
+			if iszero(staticcall(gas(), market, ptr, 0x04, 0x00, 0x20)) {
+				returndatacopy(ptr, 0x00, returndatasize())
+				revert(ptr, returndatasize())
+			}
+
+			underlying := mload(0x00)
+		}
+	}
+
+	function getLtv(Currency asset) public view returns (uint256) {
+		return getValue(getConfiguration(LENDING_POOL, asset), LTV_MASK, 0);
 	}
 
 	function getReserveData(
@@ -178,8 +124,8 @@ contract MockAaveV2Adapter is AaveV2Adapter {
 		return getUserAccountData(LENDING_POOL);
 	}
 
-	function getAssetPrice(Currency asset) public view returns (uint256) {
-		return getAssetPrice(PRICE_ORACLE, asset);
+	function getPrice(Currency asset) public view returns (uint256) {
+		return getAssetPrice(asset);
 	}
 
 	function getPriceFeed(Currency asset) public view returns (address) {

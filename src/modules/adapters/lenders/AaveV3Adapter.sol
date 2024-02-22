@@ -55,9 +55,10 @@ contract AaveV3Adapter is ILender, BaseLender {
 		address _incentives,
 		address _oracle,
 		address _denomination,
+		address _ethUsdFeed,
 		Currency _wrappedNative,
 		Currency _weth
-	) BaseLender(_resolver, _protocol, _denomination, _wrappedNative, _weth) {
+	) BaseLender(_resolver, _protocol, _denomination, _ethUsdFeed, _wrappedNative, _weth) {
 		LENDING_POOL = _lendingPool;
 		INCENTIVES = _incentives;
 		PRICE_ORACLE = _oracle;
@@ -182,14 +183,14 @@ contract AaveV3Adapter is ILender, BaseLender {
 	}
 
 	function enterMarket(bytes calldata params) public payable {
-		setAsCollateral(LENDING_POOL, params.toAddress(), true);
+		setAsCollateral(LENDING_POOL, Currency.wrap(params.toAddress()), true);
 	}
 
 	function exitMarket(bytes calldata params) public payable {
-		setAsCollateral(LENDING_POOL, params.toAddress(), false);
+		setAsCollateral(LENDING_POOL, Currency.wrap(params.toAddress()), false);
 	}
 
-	function setAsCollateral(address lendingPool, address asset, bool useAsCollateral) internal {
+	function setAsCollateral(address lendingPool, Currency asset, bool useAsCollateral) internal {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
@@ -275,9 +276,11 @@ contract AaveV3Adapter is ILender, BaseLender {
 		reserveData.supplyRate = currentLiquidityRate.rayToWad();
 		reserveData.borrowRate = currentVariableBorrowRate.rayToWad();
 		reserveData.ltv = getValue(configuration, LTV_MASK, 0);
+
+		bool isActive = isReserveActive(configuration);
 		reserveData.isCollateral = isCollateralAsset(configuration);
-		reserveData.isBorrowable = isBorrowAsset(configuration);
-		reserveData.isActive = isReserveActive(configuration);
+		reserveData.canSupply = isCollateralAsset(configuration) && isActive;
+		reserveData.canBorrow = isBorrowAsset(configuration) && isActive;
 	}
 
 	function getPendingRewards(bytes calldata params) external view returns (uint256) {
@@ -364,27 +367,6 @@ contract AaveV3Adapter is ILender, BaseLender {
 			mstore(ptr, 0xd1946dbc00000000000000000000000000000000000000000000000000000000)
 
 			if iszero(staticcall(gas(), lendingPool, ptr, 0x04, 0x00, 0x20)) {
-				returndatacopy(ptr, 0x00, returndatasize())
-				revert(ptr, returndatasize())
-			}
-
-			mstore(0x40, add(returndata, add(returndatasize(), 0x20)))
-			mstore(returndata, returndatasize())
-			returndatacopy(add(returndata, 0x20), 0x00, returndatasize())
-		}
-
-		return abi.decode(returndata, (Currency[]));
-	}
-
-	function getRewardsList(address incentives) internal view returns (Currency[] memory rewardAssets) {
-		bytes memory returndata;
-
-		assembly ("memory-safe") {
-			let ptr := mload(0x40)
-
-			mstore(ptr, 0xb45ac1a900000000000000000000000000000000000000000000000000000000)
-
-			if iszero(staticcall(gas(), incentives, ptr, 0x04, 0x00, 0x20)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
@@ -544,6 +526,15 @@ contract AaveV3Adapter is ILender, BaseLender {
 
 			configuration := mload(0x00)
 		}
+	}
+
+	function getAssetPrice(Currency asset) internal view returns (uint256) {
+		if (asset == WETH) return WadRayMath.WAD;
+
+		return
+			denomination != ETH
+				? derivePrice(getAssetPrice(PRICE_ORACLE, asset), getETHPrice(), 8, 8, 18)
+				: getAssetPrice(PRICE_ORACLE, asset);
 	}
 
 	function getAssetPrice(address oracle, Currency asset) internal view returns (uint256 price) {

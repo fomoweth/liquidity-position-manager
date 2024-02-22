@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {ILender} from "src/interfaces/ILender.sol";
+import {ICTokenRegistry} from "src/interfaces/ICTokenRegistry.sol";
 import {BytesLib} from "src/libraries/BytesLib.sol";
 import {Errors} from "src/libraries/Errors.sol";
 import {FullMath} from "src/libraries/FullMath.sol";
@@ -35,6 +36,8 @@ contract CompoundV2Adapter is ILender, BaseLender {
 	uint256 internal constant COMP_INITIAL_INDEX = 1e36;
 	uint256 internal constant MAX_BORROW_RATE = 0.0005e16;
 
+	ICTokenRegistry internal immutable cTokenRegistry;
+
 	address internal immutable COMPTROLLER;
 	address internal immutable PRICE_ORACLE;
 
@@ -43,14 +46,17 @@ contract CompoundV2Adapter is ILender, BaseLender {
 
 	constructor(
 		address _resolver,
+		address _cTokenRegistry,
 		bytes32 _protocol,
 		address _comptroller,
 		address _priceOracle,
 		Currency _cNative,
 		Currency _cEth,
+		address _ethUsdFeed,
 		Currency _wrappedNative,
 		Currency _weth
-	) BaseLender(_resolver, _protocol, USD, _wrappedNative, _weth) {
+	) BaseLender(_resolver, _protocol, USD, _ethUsdFeed, _wrappedNative, _weth) {
+		cTokenRegistry = ICTokenRegistry(_cTokenRegistry);
 		COMPTROLLER = _comptroller;
 		PRICE_ORACLE = _priceOracle;
 		cNATIVE = _cNative;
@@ -175,7 +181,7 @@ contract CompoundV2Adapter is ILender, BaseLender {
 			}
 
 			if iszero(mload(0x00)) {
-				mstore(ptr, 0xc299823800000000000000000000000000000000000000000000000000000000) // enterMarkets(address[])
+				mstore(ptr, 0xc299823800000000000000000000000000000000000000000000000000000000)
 				mstore(add(ptr, 0x04), 0x20)
 				mstore(add(ptr, 0x24), 0x01)
 				mstore(add(ptr, 0x44), and(cToken, 0xffffffffffffffffffffffffffffffffffffffff))
@@ -192,7 +198,7 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
-			mstore(ptr, 0xede4edd000000000000000000000000000000000000000000000000000000000) // exitMarket(address)
+			mstore(ptr, 0xede4edd000000000000000000000000000000000000000000000000000000000)
 			mstore(add(ptr, 0x04), and(cToken, 0xffffffffffffffffffffffffffffffffffffffff))
 
 			if iszero(call(gas(), comptroller, 0x00, ptr, 0x24, 0x00, 0x00)) {
@@ -331,8 +337,8 @@ contract CompoundV2Adapter is ILender, BaseLender {
 				borrowIndex: index,
 				lastAccrualTime: accrualBlockNumber(cToken),
 				isCollateral: ltv != 0,
-				isBorrowable: true,
-				isActive: !isMintPaused(comptroller, cToken) && !isBorrowPaused(comptroller, cToken)
+				canSupply: !isMintPaused(comptroller, cToken),
+				canBorrow: !isBorrowPaused(comptroller, cToken)
 			});
 	}
 
@@ -661,7 +667,7 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		}
 	}
 
-	function getAssetPrice(Currency cToken) internal view virtual returns (uint256) {
+	function getAssetPrice(Currency cToken) internal view returns (uint256) {
 		if (cToken == cETH) return WadRayMath.WAD;
 
 		address oracle = PRICE_ORACLE;
@@ -1043,10 +1049,11 @@ contract CompoundV2Adapter is ILender, BaseLender {
 
 		address comptroller = COMPTROLLER;
 
-		if (useAsCollateral && getLtv(comptroller, cToken) == 0) return ReserveError.NotCollateral;
-
-		if (isMintPaused(comptroller, cToken) || isBorrowPaused(comptroller, cToken)) {
-			return ReserveError.NotActive;
+		if (useAsCollateral) {
+			if (getLtv(comptroller, cToken) == 0) return ReserveError.NotCollateral;
+			if (isMintPaused(comptroller, cToken)) return ReserveError.NotActive;
+		} else {
+			if (isBorrowPaused(comptroller, cToken)) return ReserveError.NotActive;
 		}
 
 		return ReserveError.NoError;

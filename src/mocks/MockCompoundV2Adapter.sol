@@ -2,104 +2,39 @@
 pragma solidity ^0.8.20;
 
 import {CompoundV2Adapter} from "src/modules/adapters/lenders/CompoundV2Adapter.sol";
+import {FullMath} from "src/libraries/FullMath.sol";
+import {WadRayMath} from "src/libraries/WadRayMath.sol";
 import {Currency, CurrencyLibrary} from "src/types/Currency.sol";
 
 contract MockCompoundV2Adapter is CompoundV2Adapter {
 	using CurrencyLibrary for Currency;
+	using WadRayMath for uint256;
 
 	constructor(
 		address _resolver,
+		address _cTokenRegistry,
 		bytes32 _protocol,
 		address _comptroller,
 		address _priceOracle,
 		Currency _cNative,
 		Currency _cEth,
+		address _ethUsdFeed,
 		Currency _wrappedNative,
 		Currency _weth
 	)
 		CompoundV2Adapter(
 			_resolver,
+			_cTokenRegistry,
 			_protocol,
 			_comptroller,
 			_priceOracle,
 			_cNative,
 			_cEth,
+			_ethUsdFeed,
 			_wrappedNative,
 			_weth
 		)
 	{}
-
-	function supply(
-		Currency cToken,
-		Currency asset,
-		uint256 amount
-	)
-		public
-		payable
-		returns (uint128 reserveIndex, uint40 accrualBlockNumber, uint256 balancePrior, uint256 balanceNew)
-	{
-		balancePrior = cToken.balanceOfSelf();
-
-		(reserveIndex, accrualBlockNumber) = this.supply(abi.encode(cToken, asset, amount));
-
-		balanceNew = cToken.balanceOfSelf();
-	}
-
-	function borrow(
-		Currency cToken,
-		Currency asset,
-		uint256 amount
-	)
-		public
-		payable
-		returns (uint128 reserveIndex, uint40 accrualBlockNumber, uint256 balancePrior, uint256 balanceNew)
-	{
-		balancePrior = cToken.balanceOfSelf();
-
-		(reserveIndex, accrualBlockNumber) = this.borrow(abi.encode(cToken, asset, amount));
-
-		balanceNew = cToken.balanceOfSelf();
-	}
-
-	function repay(
-		Currency cToken,
-		Currency asset,
-		uint256 amount
-	)
-		public
-		payable
-		returns (uint128 reserveIndex, uint40 accrualBlockNumber, uint256 balancePrior, uint256 balanceNew)
-	{
-		balancePrior = cToken.balanceOfSelf();
-
-		(reserveIndex, accrualBlockNumber) = this.repay(abi.encode(cToken, asset, amount));
-
-		balanceNew = cToken.balanceOfSelf();
-	}
-
-	function redeem(
-		Currency cToken,
-		Currency asset,
-		uint256 amount
-	)
-		public
-		payable
-		returns (uint128 reserveIndex, uint40 accrualBlockNumber, uint256 balancePrior, uint256 balanceNew)
-	{
-		balancePrior = cToken.balanceOfSelf();
-
-		(reserveIndex, accrualBlockNumber) = this.redeem(abi.encode(cToken, asset, amount));
-
-		balanceNew = cToken.balanceOfSelf();
-	}
-
-	function enterMarket(Currency cToken) public payable {
-		this.enterMarket(abi.encode(cToken));
-	}
-
-	function exitMarket(Currency cToken) public payable {
-		this.exitMarket(abi.encode(cToken));
-	}
 
 	function claimRewards() public payable {
 		this.claimRewards("0x");
@@ -129,10 +64,24 @@ contract MockCompoundV2Adapter is CompoundV2Adapter {
 		return getCompAddress(COMPTROLLER);
 	}
 
-	function getUnderlyingPrice(Currency cToken) public view returns (uint256) {
-		if (cToken == cNATIVE) return getUnderlyingPrice(PRICE_ORACLE, cToken, 18);
+	function getSupplyBalance(Currency cToken) public view returns (uint256) {
+		(uint256 exchangeRate, ) = accruedInterestIndices(cToken);
 
-		return getUnderlyingPrice(PRICE_ORACLE, cToken, cTokenToUnderlying(cToken).decimals());
+		return cToken.balanceOfSelf().wadMul(exchangeRate);
+	}
+
+	function getBorrowBalance(Currency cToken) public view returns (uint256) {
+		(, uint256 borrowIndexNew) = accruedInterestIndices(cToken);
+
+		return FullMath.mulDiv(borrowBalanceStored(cToken), borrowIndexNew, borrowIndex(cToken));
+	}
+
+	function getLtv(Currency cToken) public view returns (uint256) {
+		return getLtv(COMPTROLLER, cToken);
+	}
+
+	function getPrice(Currency cToken) public view returns (uint256) {
+		return getAssetPrice(cToken);
 	}
 
 	function checkMembership(Currency cToken) public view returns (bool accountMembership) {

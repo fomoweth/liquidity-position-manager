@@ -25,12 +25,15 @@ abstract contract BaseLender is BaseModule {
 
 	address internal immutable denomination;
 
+	address internal immutable ETH_USD_FEED;
+
 	Currency internal immutable WETH;
 
 	constructor(
 		address _resolver,
 		bytes32 _protocol,
 		address _denomination,
+		address _ethUsdFeed,
 		Currency _wrappedNative,
 		Currency _weth
 	) BaseModule(_resolver, _protocol, _wrappedNative) {
@@ -39,11 +42,29 @@ abstract contract BaseLender is BaseModule {
 		}
 
 		denomination = _denomination;
+		ETH_USD_FEED = _ethUsdFeed;
 		WETH = _weth;
 	}
 
-	function getETHPrice() internal view virtual returns (uint256 price) {
-		//
+	function getETHPrice() internal view virtual returns (uint256 answer) {
+		address feed = ETH_USD_FEED;
+
+		assembly ("memory-safe") {
+			let ptr := mload(0x40)
+
+			mstore(ptr, 0x50d25bcd00000000000000000000000000000000000000000000000000000000)
+
+			if iszero(staticcall(gas(), feed, ptr, 0x04, 0x00, 0x20)) {
+				returndatacopy(ptr, 0x00, returndatasize())
+				revert(ptr, returndatasize())
+			}
+
+			answer := mload(0x00)
+
+			if slt(answer, 0x00) {
+				answer := 0x00
+			}
+		}
 	}
 
 	function derivePrice(
