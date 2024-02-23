@@ -4,9 +4,10 @@ pragma solidity ^0.8.20;
 import {Errors} from "src/libraries/Errors.sol";
 import {FullMath} from "src/libraries/FullMath.sol";
 import {Currency} from "src/types/Currency.sol";
-import {BaseModule} from "../../BaseModule.sol";
+import {BaseModule} from "src/modules/BaseModule.sol";
 
 /// @title BaseLender
+/// @notice Abstract base for lending adapters
 
 abstract contract BaseLender is BaseModule {
 	enum ReserveError {
