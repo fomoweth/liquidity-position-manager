@@ -40,6 +40,7 @@ abstract contract CurrencyState is CommonBase, Constants, Encoder {
 	// Stablecoins
 	Currency DAI;
 	Currency FRAX;
+	Currency MIM;
 	Currency USDC;
 	Currency USDT;
 
@@ -66,6 +67,7 @@ abstract contract CurrencyState is CommonBase, Constants, Encoder {
 
 			DAI = setCurrency(0x6B175474E89094C44Da98b954EedeAC495271d0F);
 			FRAX = setCurrency(0x853d955aCEf822Db058eb8505911ED77F175b99e);
+			MIM = setCurrency(0x99D8a9C45b2ecA8864373A26D1459e3Dff1e17F3);
 			USDC = setCurrency(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
 			USDT = setCurrency(0xdAC17F958D2ee523a2206206994597C13D831ec7);
 		} else if (chainId == OPTIMISM_CHAIN_ID) {
@@ -88,6 +90,7 @@ abstract contract CurrencyState is CommonBase, Constants, Encoder {
 
 			DAI = setCurrency(0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1);
 			FRAX = setCurrency(0x2E3D870790dC77A83DD1d18184Acc7439A53f475);
+			MIM = setCurrency(0xB153FB3d196A8eB25522705560ac152eeEc57901);
 			USDC = setCurrency(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
 			USDT = setCurrency(0x94b008aA00579c1307B0EF2c499aD98a8ce58e58);
 		} else if (chainId == POLYGON_CHAIN_ID) {
@@ -114,6 +117,7 @@ abstract contract CurrencyState is CommonBase, Constants, Encoder {
 
 			DAI = setCurrency(0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063);
 			FRAX = setCurrency(0x45c32fA6DF82ead1e2EF74d17b76547EDdFaFF89);
+			MIM = setCurrency(0x49a0400587A7F65072c87c4910449fDcC5c47242);
 			USDC = setCurrency(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174);
 			USDT = setCurrency(0xc2132D05D31c914a87C6611C10748AEb04B58e8F);
 		} else if (chainId == ARBITRUM_CHAIN_ID) {
@@ -138,6 +142,7 @@ abstract contract CurrencyState is CommonBase, Constants, Encoder {
 
 			DAI = setCurrency(0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1);
 			FRAX = setCurrency(0x17FC002b466eEc40DaE837Fc4bE5c67993ddBd6F);
+			MIM = setCurrency(0xFEa7a6a0B346362BF88A9e4A88416B77a57D6c2A);
 			USDC = setCurrency(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8);
 			USDT = setCurrency(0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9);
 		}
@@ -174,6 +179,7 @@ abstract contract CurrencyState is CommonBase, Constants, Encoder {
 			setFeed(0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9, DAI, USD);
 			setFeed(0x14d04Fff8D21bd62987a5cE9ce543d2F1edF5D3E, FRAX, ETH);
 			setFeed(0xB9E1E3A9feFf48998E45Fa90847ed4D467E8BcfD, FRAX, USD);
+			setFeed(0x7A364e8770418566e3eb2001A96116E6138Eb32F, MIM, USD);
 			setFeed(0x986b5E1e1755e3C2440e960477f25201B0a8bbD4, USDC, ETH);
 			setFeed(0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6, USDC, USD);
 			setFeed(0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46, USDT, ETH);
@@ -232,6 +238,7 @@ abstract contract CurrencyState is CommonBase, Constants, Encoder {
 			setFeed(0xFC539A559e170f848323e19dfD66007520510085, DAI, ETH);
 			setFeed(0x4746DeC9e833A82EC7C2C1356372CcF2cfcD2F3D, DAI, USD);
 			setFeed(0x00DBeB1e45485d53DF7C2F0dF1Aa0b6Dc30311d3, FRAX, USD);
+			setFeed(0xd133F916e04ed5D67b231183d85Be12eAA018320, MIM, USD);
 			setFeed(0xefb7e6be8356cCc6827799B6A7348eE674A80EaE, USDC, ETH);
 			setFeed(0xfE4A8cc5b5B2366C1B58Bea3858e81843581b2F7, USDC, USD);
 			setFeed(0xf9d5AAC6E5572AEFa6bd64108ff86a222F69B64d, USDT, ETH);
@@ -259,6 +266,7 @@ abstract contract CurrencyState is CommonBase, Constants, Encoder {
 
 			setFeed(0xc5C8E77B397E531B8EC06BFb0048328B30E9eCfB, DAI, USD);
 			setFeed(0x0809E3d38d1B4214958faf06D8b1B1a2b73f2ab8, FRAX, USD);
+			setFeed(0x87121F6c9A9F6E90E59591E4Cf4804873f54A95b, MIM, USD);
 			setFeed(0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3, USDC, USD);
 			setFeed(0x3f3f5dF88dC9F13eac63DF89EC16ef6e7E25DdE7, USDT, USD);
 		}
