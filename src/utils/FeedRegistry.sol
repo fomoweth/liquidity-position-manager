@@ -25,12 +25,14 @@ contract FeedRegistry is IFeedRegistry, Authority, Initializable {
 	address internal constant USD = 0x0000000000000000000000000000000000000348;
 	address internal constant MATIC = 0x0000000000000000000000000000000000001010;
 
+	Currency internal immutable WRAPPED_NATIVE;
 	Currency internal immutable WETH;
 	Currency internal immutable WBTC;
 
 	IAddressResolver internal resolver;
 
-	constructor(Currency _weth, Currency _wbtc) {
+	constructor(Currency _wrappedNative, Currency _weth, Currency _wbtc) {
+		WRAPPED_NATIVE = _wrappedNative;
 		WETH = _weth;
 		WBTC = _wbtc;
 	}
@@ -295,6 +297,7 @@ contract FeedRegistry is IFeedRegistry, Authority, Initializable {
 	}
 
 	function getFeed(Currency base, address quote) public view returns (address) {
+		if (base.isNative()) base = WRAPPED_NATIVE;
 		return _feeds[base][quote];
 	}
 
