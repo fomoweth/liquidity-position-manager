@@ -9,9 +9,11 @@ import {AaveV2Adapter} from "src/modules/adapters/lenders/AaveV2Adapter.sol";
 import {AaveV3Adapter} from "src/modules/adapters/lenders/AaveV3Adapter.sol";
 import {CompoundV2Adapter} from "src/modules/adapters/lenders/CompoundV2Adapter.sol";
 import {CompoundV3Adapter} from "src/modules/adapters/lenders/CompoundV3Adapter.sol";
+import {ConvexCurveAdapter} from "src/modules/adapters/stakers/ConvexCurveAdapter.sol";
 import {FeedRegistry} from "src/utils/FeedRegistry.sol";
 import {Create3Factory} from "src/utils/Create3Factory.sol";
 import {CTokenRegistry} from "src/utils/CTokenRegistry.sol";
+import {BOOSTER} from "src/libraries/Constants.sol";
 import {Currency} from "src/types/Currency.sol";
 import {CurrencyState} from "test/shared/states/CurrencyState.sol";
 import {AaveConfig, CompoundV2Config, CompoundV3Config} from "test/shared/states/DataTypes.sol";
@@ -28,6 +30,8 @@ contract Deployer is CommonBase, CurrencyState {
 	AaveV3Adapter aaveV3Adapter;
 	CompoundV2Adapter compV2Adapter;
 	CompoundV3Adapter compV3Adapter;
+
+	ConvexCurveAdapter cvxCrvAdapter;
 
 	function deployCreate3Factory() internal {
 		vm.label(address(create3Factory = new Create3Factory()), "Create3Factory");
@@ -56,7 +60,7 @@ contract Deployer is CommonBase, CurrencyState {
 			create3(
 				"FeedRegistry",
 				"FEED_REGISTRY",
-				abi.encodePacked(type(FeedRegistry).creationCode, abi.encode(WETH, WBTC))
+				abi.encodePacked(type(FeedRegistry).creationCode, abi.encode(WRAPPED_NATIVE, WETH, WBTC))
 			)
 		);
 
@@ -205,6 +209,23 @@ contract Deployer is CommonBase, CurrencyState {
 			if (!config.cWETH.isZero()) vm.label(config.cWETH.toAddress(), "cWETH");
 			if (!config.cUSDC.isZero()) vm.label(config.cUSDC.toAddress(), "cUSDC");
 			if (!config.cUSDCe.isZero()) vm.label(config.cUSDCe.toAddress(), "cUSDCe");
+		}
+	}
+
+	function deployConvexCurveAdapter() internal {
+		if (!CVX.isZero()) {
+			cvxCrvAdapter = ConvexCurveAdapter(
+				create3(
+					"ConvexCurveAdapter",
+					"CONVEX_CURVE_ADAPTER",
+					abi.encodePacked(
+						type(ConvexCurveAdapter).creationCode,
+						abi.encode(address(resolver), CVX_ID, WRAPPED_NATIVE, CRV, CVX)
+					)
+				)
+			);
+
+			vm.label(BOOSTER, "ConvexBooster");
 		}
 	}
 
