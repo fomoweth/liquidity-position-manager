@@ -6,11 +6,12 @@ import {Currency, CurrencyLibrary, toCurrency} from "src/types/Currency.sol";
 import {CurrencyState} from "test/shared/states/CurrencyState.sol";
 import {AaveConfig, CompoundV2Config, CompoundV3Config} from "test/shared/states/DataTypes.sol";
 import {Assertion} from "test/shared/utils/Assertion.sol";
+import {CurveUtils} from "test/shared/utils/CurveUtils.sol";
 import {Deployer} from "test/shared/utils/Deployer.sol";
 import {Fork} from "test/shared/utils/Fork.sol";
-import {Utils} from "test/shared/utils/Utils.sol";
+import {Common} from "test/shared/utils/Common.sol";
 
-abstract contract BaseTest is Test, Assertion, Fork, Deployer, Utils {
+abstract contract BaseTest is Test, Assertion, Fork, Deployer, CurveUtils {
 	using CurrencyLibrary for Currency;
 
 	AaveConfig aaveV2Config;
@@ -47,6 +48,10 @@ abstract contract BaseTest is Test, Assertion, Fork, Deployer, Utils {
 		deployAaveV3Adapter(aaveV3Config);
 		deployCompoundV2Adapter(compV2Config);
 		deployCompoundV3Adapter(compV3Config);
+
+		// deploy staking adapters
+
+		deployConvexCurveAdapter();
 	}
 
 	function deployConfigurations() internal {
@@ -62,6 +67,10 @@ abstract contract BaseTest is Test, Assertion, Fork, Deployer, Utils {
 		deployAaveV3Adapter(aaveV3Config);
 		deployCompoundV2Adapter(compV2Config);
 		deployCompoundV3Adapter(compV3Config);
+	}
+
+	function deployStakers() internal {
+		deployConvexCurveAdapter();
 	}
 
 	function setUpLenders(uint256 chainId) internal {
@@ -179,6 +188,10 @@ abstract contract BaseTest is Test, Assertion, Fork, Deployer, Utils {
 				cUSDCe: toCurrency(0xA5EDBDD9646f8dFF606d7448e414884C7d905dCA)
 			});
 		}
+	}
+
+	function deal(Currency currency, address account, uint256 amount, bool adjust) internal {
+		deal(currency.toAddress(), account, amount, adjust);
 	}
 
 	function deal(Currency currency, address account, uint256 amount) internal {
