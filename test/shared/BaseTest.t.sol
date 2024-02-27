@@ -7,9 +7,9 @@ import {CurrencyState} from "test/shared/states/CurrencyState.sol";
 import {AaveConfig, CompoundV2Config, CompoundV3Config} from "test/shared/states/DataTypes.sol";
 import {Assertion} from "test/shared/utils/Assertion.sol";
 import {CurveUtils} from "test/shared/utils/CurveUtils.sol";
+import {Common} from "test/shared/utils/Common.sol";
 import {Deployer} from "test/shared/utils/Deployer.sol";
 import {Fork} from "test/shared/utils/Fork.sol";
-import {Common} from "test/shared/utils/Common.sol";
 
 abstract contract BaseTest is Test, Assertion, Fork, Deployer, CurveUtils {
 	using CurrencyLibrary for Currency;
@@ -52,6 +52,8 @@ abstract contract BaseTest is Test, Assertion, Fork, Deployer, CurveUtils {
 		// deploy staking adapters
 
 		deployConvexCurveAdapter();
+		deployCurveAdapter();
+		deployV3StakerAdapter();
 	}
 
 	function deployConfigurations() internal {
@@ -71,6 +73,7 @@ abstract contract BaseTest is Test, Assertion, Fork, Deployer, CurveUtils {
 
 	function deployStakers() internal {
 		deployConvexCurveAdapter();
+		deployV3StakerAdapter();
 	}
 
 	function setUpLenders(uint256 chainId) internal {
