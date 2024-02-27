@@ -85,5 +85,9 @@ contract MockCompoundV3Adapter is CompoundV3Adapter {
 		(rewardAsset, , ) = rewardConfig(REWARDS, comet);
 	}
 
+	function _checkDelegateCall() internal view virtual override {}
+
+	function _noDelegateCall() internal view virtual override {}
+
 	receive() external payable {}
 }

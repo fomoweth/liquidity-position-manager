@@ -45,4 +45,10 @@ contract MockConvexCurveAdapter is ConvexCurveAdapter {
 			}
 		}
 	}
+
+	function _checkDelegateCall() internal view virtual override {}
+
+	function _noDelegateCall() internal view virtual override {}
+
+	receive() external payable {}
 }

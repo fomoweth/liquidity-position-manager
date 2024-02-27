@@ -178,5 +178,9 @@ contract MockAaveV3Adapter is AaveV3Adapter {
 		return true;
 	}
 
+	function _checkDelegateCall() internal view virtual override {}
+
+	function _noDelegateCall() internal view virtual override {}
+
 	receive() external payable {}
 }
