@@ -10,6 +10,7 @@ import {AaveV3Adapter} from "src/modules/adapters/lenders/AaveV3Adapter.sol";
 import {CompoundV2Adapter} from "src/modules/adapters/lenders/CompoundV2Adapter.sol";
 import {CompoundV3Adapter} from "src/modules/adapters/lenders/CompoundV3Adapter.sol";
 import {ConvexCurveAdapter} from "src/modules/adapters/stakers/ConvexCurveAdapter.sol";
+import {CurveAdapter} from "src/modules/adapters/stakers/CurveAdapter.sol";
 import {V3StakerAdapter} from "src/modules/adapters/stakers/V3StakerAdapter.sol";
 import {FeedRegistry} from "src/utils/FeedRegistry.sol";
 import {Create3Factory} from "src/utils/Create3Factory.sol";
@@ -33,6 +34,7 @@ contract Deployer is CommonBase, CurrencyState {
 	CompoundV3Adapter compV3Adapter;
 
 	ConvexCurveAdapter cvxCrvAdapter;
+	CurveAdapter crvAdapter;
 	V3StakerAdapter v3StakerAdapter;
 
 	function deployCreate3Factory() internal {
@@ -229,6 +231,19 @@ contract Deployer is CommonBase, CurrencyState {
 
 			vm.label(BOOSTER, "ConvexBooster");
 		}
+	}
+
+	function deployCurveAdapter() internal {
+		crvAdapter = CurveAdapter(
+			create3(
+				"CurveAdapter",
+				"CURVE_ADAPTER",
+				abi.encodePacked(
+					type(CurveAdapter).creationCode,
+					abi.encode(address(resolver), CRV_ID, WRAPPED_NATIVE, CRV)
+				)
+			)
+		);
 	}
 
 	function deployV3StakerAdapter() internal {

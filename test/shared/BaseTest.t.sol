@@ -73,6 +73,7 @@ abstract contract BaseTest is Test, Assertion, Fork, Deployer, CurveUtils {
 
 	function deployStakers() internal {
 		deployConvexCurveAdapter();
+		deployCurveAdapter();
 		deployV3StakerAdapter();
 	}
 
@@ -199,6 +200,24 @@ abstract contract BaseTest is Test, Assertion, Fork, Deployer, CurveUtils {
 
 	function deal(Currency currency, address account, uint256 amount) internal {
 		deal(currency.toAddress(), account, amount);
+	}
+
+	function fetchBalances(
+		Currency[] memory assets,
+		address account
+	) internal view returns (uint256[] memory balances) {
+		uint256 length = assets.length;
+		uint256 i;
+
+		balances = new uint256[](length);
+
+		while (i < length) {
+			balances[i] = assets[i].balanceOf(account);
+
+			unchecked {
+				i = i + 1;
+			}
+		}
 	}
 
 	function getPrice(Currency base) internal view returns (uint256) {
