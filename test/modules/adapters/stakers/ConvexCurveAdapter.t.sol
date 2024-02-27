@@ -28,11 +28,12 @@ abstract contract ConvexCurveAdapterTest is BaseTest {
 		uint256 ethAmount,
 		bool useUnderlying,
 		uint256 duration,
-		Currency[] memory expected
+		Currency[] memory rewardTokens
 	) internal {
-		Currency[] memory rewardAssets = adapter.getRewardsList(abi.encode(pid));
-
-		assertEq(keccak256(abi.encode(rewardAssets)), keccak256(abi.encode(expected)));
+		assertEq(
+			keccak256(abi.encode(adapter.getRewardsList(abi.encode(pid)))),
+			keccak256(abi.encode(rewardTokens))
+		);
 
 		Currency asset = poolAssets(pool, offset, useUnderlying);
 
