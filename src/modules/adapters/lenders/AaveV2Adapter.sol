@@ -56,7 +56,13 @@ contract AaveV2Adapter is ILender, BaseLender {
 
 	function supply(
 		bytes calldata params
-	) public payable returns (uint128 liquidityIndex, uint40 lastUpdateTimestamp) {
+	)
+		public
+		payable
+		authorized
+		checkDelegateCall
+		returns (uint128 liquidityIndex, uint40 lastUpdateTimestamp)
+	{
 		address lendingPool = LENDING_POOL;
 
 		(Currency asset, uint256 amount) = decode(params);
@@ -85,7 +91,13 @@ contract AaveV2Adapter is ILender, BaseLender {
 
 	function borrow(
 		bytes calldata params
-	) public payable returns (uint128 variableBorrowIndex, uint40 lastUpdateTimestamp) {
+	)
+		public
+		payable
+		authorized
+		checkDelegateCall
+		returns (uint128 variableBorrowIndex, uint40 lastUpdateTimestamp)
+	{
 		address lendingPool = LENDING_POOL;
 
 		(Currency asset, uint256 amount) = decode(params);
@@ -113,7 +125,13 @@ contract AaveV2Adapter is ILender, BaseLender {
 
 	function repay(
 		bytes calldata params
-	) public payable returns (uint128 variableBorrowIndex, uint40 lastUpdateTimestamp) {
+	)
+		public
+		payable
+		authorized
+		checkDelegateCall
+		returns (uint128 variableBorrowIndex, uint40 lastUpdateTimestamp)
+	{
 		address lendingPool = LENDING_POOL;
 
 		(Currency asset, uint256 amount) = decode(params);
@@ -142,7 +160,13 @@ contract AaveV2Adapter is ILender, BaseLender {
 
 	function redeem(
 		bytes calldata params
-	) public payable returns (uint128 liquidityIndex, uint40 lastUpdateTimestamp) {
+	)
+		public
+		payable
+		authorized
+		checkDelegateCall
+		returns (uint128 liquidityIndex, uint40 lastUpdateTimestamp)
+	{
 		address lendingPool = LENDING_POOL;
 
 		(Currency asset, uint256 amount) = decode(params);
@@ -166,11 +190,11 @@ contract AaveV2Adapter is ILender, BaseLender {
 		(, liquidityIndex, , , , , lastUpdateTimestamp, , , , , ) = getReserveData(lendingPool, asset);
 	}
 
-	function enterMarket(bytes calldata params) public payable {
+	function enterMarket(bytes calldata params) public payable authorized checkDelegateCall {
 		setAsCollateral(LENDING_POOL, Currency.wrap(params.toAddress()), true);
 	}
 
-	function exitMarket(bytes calldata params) public payable {
+	function exitMarket(bytes calldata params) public payable authorized checkDelegateCall {
 		setAsCollateral(LENDING_POOL, Currency.wrap(params.toAddress()), false);
 	}
 
@@ -189,7 +213,7 @@ contract AaveV2Adapter is ILender, BaseLender {
 		}
 	}
 
-	function claimRewards(bytes calldata) public payable {
+	function claimRewards(bytes calldata) public payable authorized checkDelegateCall {
 		address incentives = INCENTIVES;
 
 		bytes memory markets = abi.encode(getMarketsIn(LENDING_POOL));

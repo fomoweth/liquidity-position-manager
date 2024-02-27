@@ -96,7 +96,13 @@ contract CompoundV3Adapter is ILender, BaseLender {
 
 	function supply(
 		bytes calldata params
-	) public payable returns (uint128 reserveIndex, uint40 lastAccruedTimestamp) {
+	)
+		public
+		payable
+		authorized
+		checkDelegateCall
+		returns (uint128 reserveIndex, uint40 lastAccruedTimestamp)
+	{
 		(Currency comet, Currency asset, uint256 amount) = decode(params);
 
 		verifyReserve(comet, asset, amount, true);
@@ -110,7 +116,13 @@ contract CompoundV3Adapter is ILender, BaseLender {
 
 	function borrow(
 		bytes calldata params
-	) public payable returns (uint128 reserveIndex, uint40 lastAccruedTimestamp) {
+	)
+		public
+		payable
+		authorized
+		checkDelegateCall
+		returns (uint128 reserveIndex, uint40 lastAccruedTimestamp)
+	{
 		(Currency comet, Currency asset, uint256 amount) = decode(params);
 
 		verifyReserve(comet, asset, amount, false);
@@ -122,7 +134,13 @@ contract CompoundV3Adapter is ILender, BaseLender {
 
 	function repay(
 		bytes calldata params
-	) public payable returns (uint128 reserveIndex, uint40 lastAccruedTimestamp) {
+	)
+		public
+		payable
+		authorized
+		checkDelegateCall
+		returns (uint128 reserveIndex, uint40 lastAccruedTimestamp)
+	{
 		(Currency comet, Currency asset, uint256 amount) = decode(params);
 
 		verifyReserve(comet, asset, amount, false);
@@ -136,7 +154,13 @@ contract CompoundV3Adapter is ILender, BaseLender {
 
 	function redeem(
 		bytes calldata params
-	) public payable returns (uint128 reserveIndex, uint40 lastAccruedTimestamp) {
+	)
+		public
+		payable
+		authorized
+		checkDelegateCall
+		returns (uint128 reserveIndex, uint40 lastAccruedTimestamp)
+	{
 		(Currency comet, Currency asset, uint256 amount) = decode(params);
 
 		verifyReserve(comet, asset, amount, true);
@@ -161,15 +185,15 @@ contract CompoundV3Adapter is ILender, BaseLender {
 		}
 	}
 
-	function enterMarket(bytes calldata) public payable {
+	function enterMarket(bytes calldata) public payable authorized checkDelegateCall {
 		revert Errors.NotSupported();
 	}
 
-	function exitMarket(bytes calldata) public payable {
+	function exitMarket(bytes calldata) public payable authorized checkDelegateCall {
 		revert Errors.NotSupported();
 	}
 
-	function claimRewards(bytes calldata params) public payable {
+	function claimRewards(bytes calldata params) public payable authorized checkDelegateCall {
 		address rewards = REWARDS;
 
 		assembly ("memory-safe") {

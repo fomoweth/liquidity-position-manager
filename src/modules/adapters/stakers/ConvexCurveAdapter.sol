@@ -52,7 +52,7 @@ contract ConvexCurveAdapter is IStaker, BaseModule {
 		);
 	}
 
-	function stake(bytes calldata params) external payable {
+	function stake(bytes calldata params) external payable authorized checkDelegateCall {
 		uint256 pid;
 		uint256 amount;
 
@@ -77,7 +77,7 @@ contract ConvexCurveAdapter is IStaker, BaseModule {
 		lpToken.approve(BOOSTER, 0);
 	}
 
-	function unstake(bytes calldata params) external payable {
+	function unstake(bytes calldata params) external payable authorized checkDelegateCall {
 		uint256 pid;
 		uint256 amount;
 
@@ -93,7 +93,7 @@ contract ConvexCurveAdapter is IStaker, BaseModule {
 		unstakeAndWithdraw(rewardPool, amount);
 	}
 
-	function getRewards(bytes calldata params) external payable {
+	function getRewards(bytes calldata params) external payable authorized checkDelegateCall {
 		uint256 pid;
 
 		assembly ("memory-safe") {

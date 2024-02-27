@@ -63,7 +63,9 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		cETH = _cEth;
 	}
 
-	function supply(bytes calldata params) public payable returns (uint128, uint40) {
+	function supply(
+		bytes calldata params
+	) public payable authorized checkDelegateCall returns (uint128, uint40) {
 		(Currency cToken, Currency asset, uint256 amount) = decode(params);
 
 		verifyReserve(cToken, asset, amount, true);
@@ -85,7 +87,9 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		return (exchangeRateStored(cToken), accrualBlockNumber(cToken));
 	}
 
-	function borrow(bytes calldata params) public payable returns (uint128, uint40) {
+	function borrow(
+		bytes calldata params
+	) public payable authorized checkDelegateCall returns (uint128, uint40) {
 		(Currency cToken, Currency asset, uint256 amount) = decode(params);
 
 		verifyReserve(cToken, asset, amount, false);
@@ -97,7 +101,9 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		return (borrowIndex(cToken), accrualBlockNumber(cToken));
 	}
 
-	function repay(bytes calldata params) public payable returns (uint128, uint40) {
+	function repay(
+		bytes calldata params
+	) public payable authorized checkDelegateCall returns (uint128, uint40) {
 		(Currency cToken, Currency asset, uint256 amount) = decode(params);
 
 		verifyReserve(cToken, asset, amount, false);
@@ -117,7 +123,9 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		return (borrowIndex(cToken), accrualBlockNumber(cToken));
 	}
 
-	function redeem(bytes calldata params) public payable returns (uint128, uint40) {
+	function redeem(
+		bytes calldata params
+	) public payable authorized checkDelegateCall returns (uint128, uint40) {
 		(Currency cToken, Currency asset, uint256 amount) = decode(params);
 
 		verifyReserve(cToken, asset, amount, true);
@@ -159,11 +167,11 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		}
 	}
 
-	function enterMarket(bytes calldata params) public payable {
+	function enterMarket(bytes calldata params) public payable authorized checkDelegateCall {
 		enterMarket(COMPTROLLER, Currency.wrap(params.toAddress()));
 	}
 
-	function exitMarket(bytes calldata params) public payable {
+	function exitMarket(bytes calldata params) public payable authorized checkDelegateCall {
 		exitMarket(COMPTROLLER, Currency.wrap(params.toAddress()));
 	}
 
@@ -208,7 +216,7 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		}
 	}
 
-	function claimRewards(bytes calldata) public payable {
+	function claimRewards(bytes calldata) public payable authorized checkDelegateCall {
 		address comptroller = COMPTROLLER;
 
 		if (getCompAddress(comptroller).isZero()) revert Errors.NotSupported();
