@@ -24,11 +24,11 @@ abstract contract Singleton {
 		_;
 	}
 
-	function _checkDelegateCall() internal view {
+	function _checkDelegateCall() internal view virtual {
 		if (address(this) == self) revert NotDelegateCall();
 	}
 
-	function _noDelegateCall() private view {
+	function _noDelegateCall() internal view virtual {
 		if (address(this) != self) revert NoDelegateCall();
 	}
 }

@@ -16,6 +16,8 @@ abstract contract BaseModule is Authority, Chain, Singleton, Payments {
 
 	IAddressResolver internal immutable resolver;
 
+	uint256 internal constant MAX_UINT256 = 2 ** 256 - 1;
+
 	constructor(address _resolver, bytes32 _protocol, Currency _wrappedNative) Payments(_wrappedNative) {
 		protocol = _protocol;
 		resolver = IAddressResolver(_resolver);

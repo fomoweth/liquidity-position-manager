@@ -37,8 +37,6 @@ contract ConvexCurveAdapter is IStaker, BaseModule {
 	Currency internal immutable CRV;
 	Currency internal immutable CVX;
 
-	uint256 internal constant MAX_UINT256 = 2 ** 256 - 1;
-
 	constructor(
 		address _resolver,
 		bytes32 _protocol,
