@@ -28,3 +28,9 @@ struct CompoundV3Config {
 	Currency cUSDC;
 	Currency cUSDCe;
 }
+
+struct Reward {
+	Currency asset;
+	uint256 accrued;
+	uint256 balance;
+}

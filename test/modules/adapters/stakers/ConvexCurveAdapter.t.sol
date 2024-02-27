@@ -4,18 +4,13 @@ pragma solidity ^0.8.20;
 import {IStaker} from "src/interfaces/IStaker.sol";
 import {Currency, CurrencyLibrary, toCurrency} from "src/types/Currency.sol";
 import {MockConvexCurveAdapter} from "src/mocks/MockConvexCurveAdapter.sol";
+import {Reward} from "test/shared/states/DataTypes.sol";
 import {BaseTest} from "test/shared/BaseTest.t.sol";
 
 // forge test -vvv --match-path test/modules/adapters/stakers/ConvexCurveAdapter.t.sol
 
 abstract contract ConvexCurveAdapterTest is BaseTest {
 	using CurrencyLibrary for Currency;
-
-	struct Reward {
-		Currency asset;
-		uint256 accrued;
-		uint256 balance;
-	}
 
 	MockConvexCurveAdapter adapter;
 
