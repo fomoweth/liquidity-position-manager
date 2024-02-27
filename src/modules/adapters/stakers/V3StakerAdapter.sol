@@ -39,8 +39,7 @@ contract V3StakerAdapter is IStaker, BaseModule {
 	}
 
 	bytes32 private constant STORAGE_SLOT =
-		bytes32(uint256(keccak256("lpm.module.adapter.staker.v3.incentives.slot")) - 1) &
-			~bytes32(uint256(0xff));
+		bytes32(uint256(keccak256("lpm.module.adapter.staker.v3.state.slot")) - 1) & ~bytes32(uint256(0xff));
 
 	constructor(
 		address _resolver,
