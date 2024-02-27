@@ -10,10 +10,11 @@ import {AaveV3Adapter} from "src/modules/adapters/lenders/AaveV3Adapter.sol";
 import {CompoundV2Adapter} from "src/modules/adapters/lenders/CompoundV2Adapter.sol";
 import {CompoundV3Adapter} from "src/modules/adapters/lenders/CompoundV3Adapter.sol";
 import {ConvexCurveAdapter} from "src/modules/adapters/stakers/ConvexCurveAdapter.sol";
+import {V3StakerAdapter} from "src/modules/adapters/stakers/V3StakerAdapter.sol";
 import {FeedRegistry} from "src/utils/FeedRegistry.sol";
 import {Create3Factory} from "src/utils/Create3Factory.sol";
 import {CTokenRegistry} from "src/utils/CTokenRegistry.sol";
-import {BOOSTER} from "src/libraries/Constants.sol";
+import {BOOSTER, V3_NFT, V3_STAKER} from "src/libraries/Constants.sol";
 import {Currency} from "src/types/Currency.sol";
 import {CurrencyState} from "test/shared/states/CurrencyState.sol";
 import {AaveConfig, CompoundV2Config, CompoundV3Config} from "test/shared/states/DataTypes.sol";
@@ -32,6 +33,7 @@ contract Deployer is CommonBase, CurrencyState {
 	CompoundV3Adapter compV3Adapter;
 
 	ConvexCurveAdapter cvxCrvAdapter;
+	V3StakerAdapter v3StakerAdapter;
 
 	function deployCreate3Factory() internal {
 		vm.label(address(create3Factory = new Create3Factory()), "Create3Factory");
@@ -227,6 +229,22 @@ contract Deployer is CommonBase, CurrencyState {
 
 			vm.label(BOOSTER, "ConvexBooster");
 		}
+	}
+
+	function deployV3StakerAdapter() internal {
+		v3StakerAdapter = V3StakerAdapter(
+			create3(
+				"V3StakerAdapter",
+				"V3_STAKER_ADAPTER",
+				abi.encodePacked(
+					type(V3StakerAdapter).creationCode,
+					abi.encode(address(resolver), UNI_V3_ID, WRAPPED_NATIVE)
+				)
+			)
+		);
+
+		vm.label(V3_NFT, "NonfungiblePositionManager");
+		vm.label(V3_STAKER, "V3Staker");
 	}
 
 	function create3(
