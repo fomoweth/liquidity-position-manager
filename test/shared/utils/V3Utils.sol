@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import {CommonBase} from "forge-std/Base.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
-import {V3_FACTORY, V3_NFT, V3_STAKER} from "src/libraries/Constants.sol";
+import {UNISWAP_V3_NFT, UNISWAP_V3_STAKER} from "src/libraries/Constants.sol";
 import {Incentive} from "src/libraries/Incentive.sol";
 import {SafeCast} from "src/libraries/SafeCast.sol";
 import {TickMath} from "src/libraries/TickMath.sol";
@@ -31,7 +31,7 @@ abstract contract V3Utils is CommonBase, StdCheats {
 
 		deal(rewardToken.toAddress(), incentiveCreator, reward);
 
-		rewardToken.approve(V3_STAKER, reward);
+		rewardToken.approve(UNISWAP_V3_STAKER, reward);
 
 		address refundee = incentiveCreator;
 
@@ -50,7 +50,7 @@ abstract contract V3Utils is CommonBase, StdCheats {
 			mstore(add(ptr, 0x84), and(refundee, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF))
 			mstore(add(ptr, 0xa4), reward)
 
-			if iszero(call(gas(), V3_STAKER, 0x00, ptr, 0xc4, 0x00, 0x00)) {
+			if iszero(call(gas(), UNISWAP_V3_STAKER, 0x00, ptr, 0xc4, 0x00, 0x00)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
@@ -84,7 +84,7 @@ abstract contract V3Utils is CommonBase, StdCheats {
 			mstore(add(ptr, 0x64), endTime)
 			mstore(add(ptr, 0x84), and(refundee, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF))
 
-			if iszero(call(gas(), V3_STAKER, 0x00, ptr, 0xa4, 0x00, 0x00)) {
+			if iszero(call(gas(), UNISWAP_V3_STAKER, 0x00, ptr, 0xa4, 0x00, 0x00)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
@@ -105,7 +105,7 @@ abstract contract V3Utils is CommonBase, StdCheats {
 			mstore(ptr, 0x6077779500000000000000000000000000000000000000000000000000000000)
 			mstore(add(ptr, 0x04), incentiveId)
 
-			if iszero(staticcall(gas(), V3_STAKER, ptr, 0x24, res, 0x60)) {
+			if iszero(staticcall(gas(), UNISWAP_V3_STAKER, ptr, 0x24, res, 0x60)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
@@ -126,7 +126,7 @@ abstract contract V3Utils is CommonBase, StdCheats {
 			mstore(ptr, 0xb02c43d000000000000000000000000000000000000000000000000000000000)
 			mstore(add(ptr, 0x04), tokenId)
 
-			if iszero(staticcall(gas(), V3_STAKER, ptr, 0x24, res, 0x80)) {
+			if iszero(staticcall(gas(), UNISWAP_V3_STAKER, ptr, 0x24, res, 0x80)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
@@ -165,7 +165,7 @@ abstract contract V3Utils is CommonBase, StdCheats {
 			mstore(ptr, 0x99fbab8800000000000000000000000000000000000000000000000000000000)
 			mstore(add(ptr, 0x04), tokenId)
 
-			if iszero(staticcall(gas(), V3_NFT, ptr, 0x24, res, 0x180)) {
+			if iszero(staticcall(gas(), UNISWAP_V3_NFT, ptr, 0x24, res, 0x180)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}

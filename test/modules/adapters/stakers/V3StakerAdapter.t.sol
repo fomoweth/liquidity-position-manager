@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {IStaker} from "src/interfaces/IStaker.sol";
-import {V3_NFT, V3_STAKER} from "src/libraries/Constants.sol";
+import {UNISWAP_V3_NFT, UNISWAP_V3_STAKER} from "src/libraries/Constants.sol";
 import {ERC721Utils} from "src/libraries/ERC721Utils.sol";
 import {Errors} from "src/libraries/Errors.sol";
 import {Incentive} from "src/libraries/Incentive.sol";
@@ -84,7 +84,7 @@ contract V3StakerAdapterTest is BaseTest, V3Utils {
 			amount1Desired
 		);
 
-		assertEq(V3_NFT.ownerOf(tokenId), address(adapter));
+		assertEq(UNISWAP_V3_NFT.ownerOf(tokenId), address(adapter));
 
 		adapter.stake(abi.encode(incentive0, tokenId));
 
@@ -94,7 +94,7 @@ contract V3StakerAdapterTest is BaseTest, V3Utils {
 
 		assertEq(adapter.getIncentivesLength(tokenId), 2);
 
-		assertEq(V3_NFT.ownerOf(tokenId), V3_STAKER);
+		assertEq(UNISWAP_V3_NFT.ownerOf(tokenId), UNISWAP_V3_STAKER);
 
 		Currency[] memory expected = new Currency[](2);
 		expected[0] = currency0;
@@ -138,7 +138,7 @@ contract V3StakerAdapterTest is BaseTest, V3Utils {
 		uint256 rewards0New = currency0.balanceOf(address(adapter));
 		uint256 rewards1New = currency1.balanceOf(address(adapter));
 
-		assertEq(V3_NFT.ownerOf(tokenId), address(adapter));
+		assertEq(UNISWAP_V3_NFT.ownerOf(tokenId), address(adapter));
 		assertGt(rewards0New, rewards0Prior);
 		assertGt(rewards1New, rewards1Prior);
 	}

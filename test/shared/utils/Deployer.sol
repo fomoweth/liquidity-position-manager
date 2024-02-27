@@ -15,7 +15,7 @@ import {V3StakerAdapter} from "src/modules/adapters/stakers/V3StakerAdapter.sol"
 import {FeedRegistry} from "src/utils/FeedRegistry.sol";
 import {Create3Factory} from "src/utils/Create3Factory.sol";
 import {CTokenRegistry} from "src/utils/CTokenRegistry.sol";
-import {BOOSTER, V3_NFT, V3_STAKER} from "src/libraries/Constants.sol";
+import {BOOSTER, UNISWAP_V3_NFT, UNISWAP_V3_STAKER} from "src/libraries/Constants.sol";
 import {Currency} from "src/types/Currency.sol";
 import {CurrencyState} from "test/shared/states/CurrencyState.sol";
 import {AaveConfig, CompoundV2Config, CompoundV3Config} from "test/shared/states/DataTypes.sol";
@@ -258,8 +258,8 @@ contract Deployer is CommonBase, CurrencyState {
 			)
 		);
 
-		vm.label(V3_NFT, "NonfungiblePositionManager");
-		vm.label(V3_STAKER, "V3Staker");
+		vm.label(UNISWAP_V3_NFT, "NonfungiblePositionManager");
+		vm.label(UNISWAP_V3_STAKER, "V3Staker");
 	}
 
 	function create3(

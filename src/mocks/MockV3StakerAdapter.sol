@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {V3_FACTORY, V3_NFT, V3_STAKER} from "src/libraries/Constants.sol";
+import {UNISWAP_V3_NFT} from "src/libraries/Constants.sol";
 import {Incentive} from "src/libraries/Incentive.sol";
 import {Currency, CurrencyLibrary} from "src/types/Currency.sol";
 import {PoolKey, toPoolKey} from "src/types/PoolKey.sol";
@@ -29,8 +29,8 @@ contract MockV3StakerAdapter is V3StakerAdapter {
 		uint256 amount0Desired,
 		uint256 amount1Desired
 	) public payable returns (uint256 tokenId) {
-		currency0.approve(V3_NFT, amount0Desired);
-		currency1.approve(V3_NFT, amount1Desired);
+		currency0.approve(UNISWAP_V3_NFT, amount0Desired);
+		currency1.approve(UNISWAP_V3_NFT, amount1Desired);
 
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
@@ -49,7 +49,7 @@ contract MockV3StakerAdapter is V3StakerAdapter {
 			mstore(add(ptr, 0x124), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
 			mstore(add(ptr, 0x144), timestamp())
 
-			if iszero(call(gas(), V3_NFT, 0x00, ptr, 0x164, res, 0x80)) {
+			if iszero(call(gas(), UNISWAP_V3_NFT, 0x00, ptr, 0x164, res, 0x80)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}

@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import {IStaker} from "src/interfaces/IStaker.sol";
 import {BytesLib} from "src/libraries/BytesLib.sol";
-import {V3_FACTORY, V3_NFT, V3_STAKER} from "src/libraries/Constants.sol";
+import {UNISWAP_V3_NFT, UNISWAP_V3_STAKER} from "src/libraries/Constants.sol";
 import {ERC721Utils} from "src/libraries/ERC721Utils.sol";
 import {Errors} from "src/libraries/Errors.sol";
 import {FullMath} from "src/libraries/FullMath.sol";
@@ -60,7 +60,10 @@ contract V3StakerAdapter is IStaker, BaseModule {
 		// tokenId of nonfungiblePositionManager starts at 1; tokenId will never be 0
 		if (tokenId == 0) {
 			unchecked {
-				tokenId = V3_NFT.tokenOfOwnerByIndex(address(this), V3_NFT.balanceOf(address(this)) - 1);
+				tokenId = UNISWAP_V3_NFT.tokenOfOwnerByIndex(
+					address(this),
+					UNISWAP_V3_NFT.balanceOf(address(this)) - 1
+				);
 			}
 		}
 
@@ -79,9 +82,9 @@ contract V3StakerAdapter is IStaker, BaseModule {
 			state.incentiveIds[tokenId].push(incentiveId);
 		}
 
-		address ownedBy = V3_NFT.ownerOf(tokenId);
+		address ownedBy = UNISWAP_V3_NFT.ownerOf(tokenId);
 
-		if (ownedBy != V3_STAKER) {
+		if (ownedBy != UNISWAP_V3_STAKER) {
 			if (ownedBy != address(this)) revert TokenIdNotOwned(tokenId);
 
 			// gives the permission of NFT then transfer to the V3Staker along with incentive key;
@@ -107,7 +110,7 @@ contract V3StakerAdapter is IStaker, BaseModule {
 			shouldWithdraw := calldataload(add(params.offset, 0x40))
 		}
 
-		if (V3_NFT.ownerOf(tokenId) != V3_STAKER) revert TokenIdNotStaked(tokenId);
+		if (UNISWAP_V3_NFT.ownerOf(tokenId) != UNISWAP_V3_STAKER) revert TokenIdNotStaked(tokenId);
 
 		State storage state = load();
 
@@ -233,14 +236,14 @@ contract V3StakerAdapter is IStaker, BaseModule {
 			let ptr := mload(0x40)
 
 			mstore(ptr, 0x095ea7b300000000000000000000000000000000000000000000000000000000) // approve(address,uint256)
-			mstore(add(ptr, 0x04), and(V3_STAKER, 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x04), and(UNISWAP_V3_STAKER, 0xffffffffffffffffffffffffffffffffffffffff))
 			mstore(add(ptr, 0x24), tokenId)
 
-			execute(V3_NFT, ptr, 0x44)
+			execute(UNISWAP_V3_NFT, ptr, 0x44)
 
 			mstore(ptr, 0xb88d4fde00000000000000000000000000000000000000000000000000000000) // safeTransferFrom(address,address,uint256,bytes)
 			mstore(add(ptr, 0x04), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
-			mstore(add(ptr, 0x24), and(V3_STAKER, 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x24), and(UNISWAP_V3_STAKER, 0xffffffffffffffffffffffffffffffffffffffff))
 			mstore(add(ptr, 0x44), tokenId)
 			mstore(add(ptr, 0x64), 0x80)
 			mstore(add(ptr, 0x84), 0xa0)
@@ -250,7 +253,7 @@ contract V3StakerAdapter is IStaker, BaseModule {
 			mstore(add(ptr, 0x104), endTime)
 			mstore(add(ptr, 0x124), and(refundee, 0xffffffffffffffffffffffffffffffffffffffff))
 
-			execute(V3_NFT, ptr, 0x144)
+			execute(UNISWAP_V3_NFT, ptr, 0x144)
 		}
 	}
 
@@ -273,7 +276,7 @@ contract V3StakerAdapter is IStaker, BaseModule {
 			mstore(add(ptr, 0x84), and(refundee, 0xffffffffffffffffffffffffffffffffffffffff))
 			mstore(add(ptr, 0xa4), tokenId)
 
-			if iszero(call(gas(), V3_STAKER, 0x00, ptr, 0xc4, 0x00, 0x00)) {
+			if iszero(call(gas(), UNISWAP_V3_STAKER, 0x00, ptr, 0xc4, 0x00, 0x00)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
@@ -299,7 +302,7 @@ contract V3StakerAdapter is IStaker, BaseModule {
 			mstore(add(ptr, 0x84), and(refundee, 0xffffffffffffffffffffffffffffffffffffffff))
 			mstore(add(ptr, 0xa4), tokenId)
 
-			if iszero(call(gas(), V3_STAKER, 0x00, ptr, 0xc4, 0x00, 0x00)) {
+			if iszero(call(gas(), UNISWAP_V3_STAKER, 0x00, ptr, 0xc4, 0x00, 0x00)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
@@ -316,7 +319,7 @@ contract V3StakerAdapter is IStaker, BaseModule {
 			mstore(add(ptr, 0x44), 0x60)
 			mstore(add(ptr, 0x64), 0x00)
 
-			if iszero(call(gas(), V3_STAKER, 0x00, ptr, 0x84, 0x00, 0x00)) {
+			if iszero(call(gas(), UNISWAP_V3_STAKER, 0x00, ptr, 0x84, 0x00, 0x00)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
@@ -332,7 +335,7 @@ contract V3StakerAdapter is IStaker, BaseModule {
 			mstore(add(ptr, 0x24), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
 			mstore(add(ptr, 0x44), amountRequested)
 
-			if iszero(call(gas(), V3_STAKER, 0x00, ptr, 0x64, 0x00, 0x20)) {
+			if iszero(call(gas(), UNISWAP_V3_STAKER, 0x00, ptr, 0x64, 0x00, 0x20)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
@@ -361,7 +364,7 @@ contract V3StakerAdapter is IStaker, BaseModule {
 			mstore(add(ptr, 0x84), and(refundee, 0xffffffffffffffffffffffffffffffffffffffff))
 			mstore(add(ptr, 0xa4), tokenId)
 
-			if iszero(staticcall(gas(), V3_STAKER, ptr, 0xc4, 0x00, 0x40)) {
+			if iszero(staticcall(gas(), UNISWAP_V3_STAKER, ptr, 0xc4, 0x00, 0x40)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
@@ -381,7 +384,7 @@ contract V3StakerAdapter is IStaker, BaseModule {
 			mstore(ptr, 0xb02c43d000000000000000000000000000000000000000000000000000000000)
 			mstore(add(ptr, 0x04), tokenId)
 
-			if iszero(staticcall(gas(), V3_STAKER, ptr, 0x24, res, 0x80)) {
+			if iszero(staticcall(gas(), UNISWAP_V3_STAKER, ptr, 0x24, res, 0x80)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
@@ -407,7 +410,7 @@ contract V3StakerAdapter is IStaker, BaseModule {
 			mstore(ptr, 0x6077779500000000000000000000000000000000000000000000000000000000)
 			mstore(add(ptr, 0x04), incentiveId)
 
-			if iszero(staticcall(gas(), V3_STAKER, ptr, 0x24, res, 0x60)) {
+			if iszero(staticcall(gas(), UNISWAP_V3_STAKER, ptr, 0x24, res, 0x60)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
@@ -426,7 +429,7 @@ contract V3StakerAdapter is IStaker, BaseModule {
 			mstore(add(ptr, 0x04), and(rewardToken, 0xffffffffffffffffffffffffffffffffffffffff))
 			mstore(add(ptr, 0x24), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
 
-			if iszero(staticcall(gas(), V3_STAKER, ptr, 0x44, 0x00, 0x20)) {
+			if iszero(staticcall(gas(), UNISWAP_V3_STAKER, ptr, 0x44, 0x00, 0x20)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
@@ -446,7 +449,7 @@ contract V3StakerAdapter is IStaker, BaseModule {
 			mstore(add(ptr, 0x04), tokenId)
 			mstore(add(ptr, 0x24), incentiveId)
 
-			if iszero(staticcall(gas(), V3_STAKER, ptr, 0x44, 0x00, 0x40)) {
+			if iszero(staticcall(gas(), UNISWAP_V3_STAKER, ptr, 0x44, 0x00, 0x40)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
