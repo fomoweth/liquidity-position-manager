@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {V3_FACTORY} from "src/libraries/Constants.sol";
+import {UNISWAP_V3_FACTORY} from "src/libraries/Constants.sol";
 import {Currency} from "./Currency.sol";
 
 using PoolKeyLibrary for PoolKey global;
@@ -32,7 +32,7 @@ library PoolKeyLibrary {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
-			mstore(ptr, add(hex"ff", shl(0x58, V3_FACTORY)))
+			mstore(ptr, add(hex"ff", shl(0x58, UNISWAP_V3_FACTORY)))
 			mstore(add(ptr, 0x15), salt)
 			mstore(add(ptr, 0x35), V3_POOL_INIT_CODE_HASH)
 

@@ -5,6 +5,8 @@ import {console2 as console} from "forge-std/Test.sol";
 import {CommonBase} from "forge-std/Base.sol";
 import {ACLManager} from "src/configuration/ACLManager.sol";
 import {AddressResolver} from "src/configuration/AddressResolver.sol";
+import {ModuleRegistry} from "src/configuration/ModuleRegistry.sol";
+import {LendingDispatcher} from "src/modules/adapters/LendingDispatcher.sol";
 import {AaveV2Adapter} from "src/modules/adapters/lenders/AaveV2Adapter.sol";
 import {AaveV3Adapter} from "src/modules/adapters/lenders/AaveV3Adapter.sol";
 import {CompoundV2Adapter} from "src/modules/adapters/lenders/CompoundV2Adapter.sol";
@@ -15,18 +17,27 @@ import {V3StakerAdapter} from "src/modules/adapters/stakers/V3StakerAdapter.sol"
 import {FeedRegistry} from "src/utils/FeedRegistry.sol";
 import {Create3Factory} from "src/utils/Create3Factory.sol";
 import {CTokenRegistry} from "src/utils/CTokenRegistry.sol";
+import {ClientFactory} from "src/ClientFactory.sol";
+import {Client} from "src/Client.sol";
 import {BOOSTER, UNISWAP_V3_NFT, UNISWAP_V3_STAKER} from "src/libraries/Constants.sol";
 import {Currency} from "src/types/Currency.sol";
-import {CurrencyState} from "test/shared/states/CurrencyState.sol";
+import {Currencies} from "test/shared/states/Currencies.sol";
 import {AaveConfig, CompoundV2Config, CompoundV3Config} from "test/shared/states/DataTypes.sol";
 
-contract Deployer is CommonBase, CurrencyState {
+contract Deployer is CommonBase, Currencies {
+	ClientFactory factory;
+	Client implementation;
+	Client client;
+
 	AddressResolver resolver;
 	ACLManager aclManager;
+	ModuleRegistry moduleRegistry;
 
 	Create3Factory create3Factory;
 	FeedRegistry feedRegistry;
 	CTokenRegistry cTokenRegistry;
+
+	LendingDispatcher lendingDispatcher;
 
 	AaveV2Adapter aaveV2Adapter;
 	AaveV3Adapter aaveV3Adapter;
@@ -59,7 +70,32 @@ contract Deployer is CommonBase, CurrencyState {
 		resolver.setACLManager(address(aclManager));
 	}
 
-	function deployFeedResolver() internal {
+	function deployClientFactory() internal {
+		vm.label(address(implementation = new Client(address(resolver))), "Client Implementation");
+
+		factory = ClientFactory(create3("ClientFactory", "CLIENT_FACTORY", type(ClientFactory).creationCode));
+
+		factory.initialize(address(resolver));
+		factory.setImplementation(address(implementation));
+
+		resolver.setClientFactory(address(factory));
+	}
+
+	function deployClient() internal {
+		client = Client(payable(factory.deploy()));
+	}
+
+	function deployModuleRegistry() internal {
+		moduleRegistry = ModuleRegistry(
+			create3("ModuleRegistry", "MODULE_REGISTRY", type(ModuleRegistry).creationCode)
+		);
+
+		moduleRegistry.initialize(address(resolver));
+
+		resolver.setModuleRegistry(address(moduleRegistry));
+	}
+
+	function deployFeedRegistry() internal {
 		feedRegistry = FeedRegistry(
 			create3(
 				"FeedRegistry",
@@ -94,9 +130,39 @@ contract Deployer is CommonBase, CurrencyState {
 			);
 
 			cTokenRegistry.initialize(address(resolver));
-
 			cTokenRegistry.registerCTokens(cTokenRegistry.getCTokens());
 		}
+	}
+
+	function deployLendingDispatcher() internal {
+		lendingDispatcher = LendingDispatcher(
+			create3(
+				"LendingDispatcher",
+				"LENDING_DISPATCHER",
+				abi.encodePacked(
+					type(LendingDispatcher).creationCode,
+					abi.encode(address(resolver), bytes32(bytes("LENDING_DISPATCHER")), WRAPPED_NATIVE)
+				)
+			)
+		);
+
+		resolver.setLendingDispatcher(address(lendingDispatcher));
+
+		bytes4[] memory signatures = new bytes4[](7);
+
+		signatures[0] = LendingDispatcher.supply.selector;
+		signatures[1] = LendingDispatcher.borrow.selector;
+		signatures[2] = LendingDispatcher.repay.selector;
+		signatures[3] = LendingDispatcher.redeem.selector;
+		signatures[4] = LendingDispatcher.enterMarket.selector;
+		signatures[5] = LendingDispatcher.exitMarket.selector;
+		signatures[6] = LendingDispatcher.claimRewards.selector;
+
+		moduleRegistry.register(address(lendingDispatcher), signatures);
+	}
+
+	function deployStakingDispatcher() internal {
+		//
 	}
 
 	function deployAaveV2Adapter(AaveConfig memory config) internal {
@@ -121,6 +187,8 @@ contract Deployer is CommonBase, CurrencyState {
 					)
 				)
 			);
+
+			resolver.setAddress(config.protocol, address(aaveV2Adapter));
 
 			vm.label(config.lendingPool, "LendingPoolV2");
 			vm.label(config.incentives, "IncentivesController");
@@ -150,6 +218,8 @@ contract Deployer is CommonBase, CurrencyState {
 					)
 				)
 			);
+
+			resolver.setAddress(config.protocol, address(aaveV3Adapter));
 
 			vm.label(config.lendingPool, "LendingPoolV3");
 			vm.label(config.incentives, "RewardsController");
@@ -181,6 +251,8 @@ contract Deployer is CommonBase, CurrencyState {
 				)
 			);
 
+			resolver.setAddress(config.protocol, address(compV2Adapter));
+
 			vm.label(config.comptroller, "Comptroller");
 			vm.label(config.oracle, "CompoundV2Oracle");
 		}
@@ -207,6 +279,8 @@ contract Deployer is CommonBase, CurrencyState {
 				)
 			);
 
+			resolver.setAddress(config.protocol, address(compV3Adapter));
+
 			vm.label(config.configurator, "CometConfigurator");
 			vm.label(config.rewards, "CometRewards");
 
@@ -229,6 +303,8 @@ contract Deployer is CommonBase, CurrencyState {
 				)
 			);
 
+			resolver.setAddress(CVX_ID, address(cvxCrvAdapter));
+
 			vm.label(BOOSTER, "ConvexBooster");
 		}
 	}
@@ -244,6 +320,8 @@ contract Deployer is CommonBase, CurrencyState {
 				)
 			)
 		);
+
+		resolver.setAddress(CRV_ID, address(crvAdapter));
 	}
 
 	function deployV3StakerAdapter() internal {
@@ -257,6 +335,8 @@ contract Deployer is CommonBase, CurrencyState {
 				)
 			)
 		);
+
+		resolver.setAddress(UNI_V3_ID, address(v3StakerAdapter));
 
 		vm.label(UNISWAP_V3_NFT, "NonfungiblePositionManager");
 		vm.label(UNISWAP_V3_STAKER, "V3Staker");

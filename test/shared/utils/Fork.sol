@@ -12,6 +12,8 @@ contract Fork is CommonBase, Constants {
 	uint256 polygonFork;
 	uint256 arbitrumFork;
 
+	// uint256 chainId;
+
 	function setUpForks(bool forkOnBlock) internal {
 		if (forkOnBlock) {
 			mainnetFork = vm.createFork(vm.envString("RPC_MAINNET"));
@@ -26,13 +28,21 @@ contract Fork is CommonBase, Constants {
 		}
 	}
 
-	function fork(uint256 chainId) internal returns (uint256) {
-		if (chainId == ETHEREUM_CHAIN_ID) vm.selectFork(mainnetFork);
-		else if (chainId == OPTIMISM_CHAIN_ID) vm.selectFork(optimismFork);
-		else if (chainId == POLYGON_CHAIN_ID) vm.selectFork(polygonFork);
-		else if (chainId == ARBITRUM_CHAIN_ID) vm.selectFork(arbitrumFork);
-		else revert UnsupportedChainId(chainId);
+	function fork(uint256 forkId) internal {
+		if (forkId == ETHEREUM_CHAIN_ID) vm.selectFork(mainnetFork);
+		else if (forkId == OPTIMISM_CHAIN_ID) vm.selectFork(optimismFork);
+		else if (forkId == POLYGON_CHAIN_ID) vm.selectFork(polygonFork);
+		else if (forkId == ARBITRUM_CHAIN_ID) vm.selectFork(arbitrumFork);
+		else revert UnsupportedChainId(forkId);
+	}
 
-		return vm.activeFork();
+	function getChainId() internal view returns (uint256) {
+		uint256 forkedChain = vm.activeFork();
+
+		if (forkedChain == mainnetFork) return ETHEREUM_CHAIN_ID;
+		else if (forkedChain == optimismFork) return OPTIMISM_CHAIN_ID;
+		else if (forkedChain == polygonFork) return POLYGON_CHAIN_ID;
+		else if (forkedChain == arbitrumFork) return ARBITRUM_CHAIN_ID;
+		else revert UnsupportedChainId(forkedChain);
 	}
 }

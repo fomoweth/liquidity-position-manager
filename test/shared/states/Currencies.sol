@@ -7,7 +7,7 @@ import {Strings} from "@openzeppelin/utils/Strings.sol";
 import {Encoder} from "test/shared/utils/Encoder.sol";
 import {Constants} from "test/shared/states/Constants.sol";
 
-abstract contract CurrencyState is CommonBase, Constants, Encoder {
+abstract contract Currencies is CommonBase, Constants, Encoder {
 	Currency constant NATIVE = CurrencyLibrary.NATIVE;
 	Currency constant ZERO = CurrencyLibrary.ZERO;
 
@@ -19,8 +19,6 @@ abstract contract CurrencyState is CommonBase, Constants, Encoder {
 	// Liquid Staking Tokens
 	Currency stETH;
 	Currency wstETH;
-	Currency frxETH;
-	Currency sfrxETH;
 	Currency cbETH;
 	Currency rETH;
 	Currency stMATIC;
@@ -52,8 +50,6 @@ abstract contract CurrencyState is CommonBase, Constants, Encoder {
 
 			stETH = setCurrency(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
 			wstETH = setCurrency(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
-			frxETH = setCurrency(0x5E8422345238F34275888049021821E8E08CAa1f);
-			sfrxETH = setCurrency(0xac3E018457B222d93114458476f3E3416Abbe38F);
 			cbETH = setCurrency(0xBe9895146f7AF43049ca1c1AE358B0541Ea49704);
 			rETH = setCurrency(0xae78736Cd615f374D3085123A210448E74Fc6393);
 
@@ -76,8 +72,6 @@ abstract contract CurrencyState is CommonBase, Constants, Encoder {
 			WBTC = setCurrency(0x68f180fcCe6836688e9084f035309E29Bf0A2095);
 
 			wstETH = setCurrency(0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb);
-			frxETH = setCurrency(0x6806411765Af15Bddd26f8f544A34cC40cb9838B);
-			sfrxETH = setCurrency(0x484c2D6e3cDd945a8B2DF735e079178C1036578c);
 			cbETH = setCurrency(0xadDb6A0412DE1BA0F936DCaeb8Aaa24578dcF3B2);
 			rETH = setCurrency(0x9Bcef72be871e61ED4fBbc7630889beE758eb81D);
 
@@ -100,8 +94,6 @@ abstract contract CurrencyState is CommonBase, Constants, Encoder {
 			WBTC = setCurrency(0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6);
 
 			wstETH = setCurrency(0x03b54A6e9a984069379fae1a4fC4dBAE93B3bCCD);
-			frxETH = setCurrency(0xEe327F889d5947c1dc1934Bb208a1E792F953E96);
-			sfrxETH = setCurrency(0x6d1FdBB266fCc09A16a22016369210A15bb95761);
 			cbETH = setCurrency(0x4b4327dB1600B8B1440163F667e199CEf35385f5);
 			rETH = setCurrency(0x0266F4F08D82372CF0FcbCCc0Ff74309089c74d1);
 			MaticX = setCurrency(0xfa68FB4628DFF1028CFEc22b4162FCcd0d45efb6);
@@ -126,8 +118,6 @@ abstract contract CurrencyState is CommonBase, Constants, Encoder {
 			WBTC = setCurrency(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f);
 
 			wstETH = setCurrency(0x5979D7b546E38E414F7E9822514be443A4800529);
-			frxETH = setCurrency(0x178412e79c25968a32e89b11f63B33F733770c2A);
-			sfrxETH = setCurrency(0x95aB45875cFFdba1E5f451B950bC2E42c0053f39);
 			cbETH = setCurrency(0x1DEBd73E752bEaF79865Fd6446b0c970EaE7732f);
 			rETH = setCurrency(0xEC70Dcb4A1EFa46b8F2D97C310C9c4790ba5ffA8);
 
@@ -277,23 +267,8 @@ abstract contract CurrencyState is CommonBase, Constants, Encoder {
 	}
 
 	function symbol(Currency currency) internal view returns (string memory res) {
-		res = callAndParseStringReturn(currency, 0x95d89b41);
-
-		if (bytes(res).length == 0) return Strings.toHexString(currency.toId(), 20);
-	}
-
-	function name(Currency currency) internal view returns (string memory res) {
-		res = callAndParseStringReturn(currency, 0x06fdde03);
-
-		if (bytes(res).length == 0) return Strings.toHexString(currency.toId(), 3);
-	}
-
-	function callAndParseStringReturn(
-		Currency currency,
-		bytes4 selector
-	) private view returns (string memory) {
 		(bool success, bytes memory returndata) = currency.toAddress().staticcall(
-			abi.encodeWithSelector(selector)
+			abi.encodeWithSelector(0x95d89b41)
 		);
 
 		if (success) {
@@ -301,7 +276,7 @@ abstract contract CurrencyState is CommonBase, Constants, Encoder {
 			else if (returndata.length > 64) return abi.decode(returndata, (string));
 		}
 
-		return "";
+		return Strings.toHexString(currency.toId(), 4);
 	}
 
 	function setFeed(address feed, Currency base, address quote) internal virtual;

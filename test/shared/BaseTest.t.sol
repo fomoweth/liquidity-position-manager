@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {Currency, CurrencyLibrary, toCurrency} from "src/types/Currency.sol";
-import {CurrencyState} from "test/shared/states/CurrencyState.sol";
+import {Currencies} from "test/shared/states/Currencies.sol";
 import {AaveConfig, CompoundV2Config, CompoundV3Config} from "test/shared/states/DataTypes.sol";
 import {Assertion} from "test/shared/utils/Assertion.sol";
 import {CurveUtils} from "test/shared/utils/CurveUtils.sol";
@@ -29,49 +29,30 @@ abstract contract BaseTest is Test, Assertion, Fork, Deployer, CurveUtils {
 		setUpCurrencies(chainId);
 		setUpLenders(chainId);
 
-		// deploy configuration contracts
-
+		// deploy Create3Factory
 		deployCreate3Factory();
+
+		// deploy configuration contracts
 		deployAddressResolver();
 		deployACLManager();
+		deployClientFactory();
+		deployModuleRegistry();
 
 		// deploy utils contracts
-
-		deployFeedResolver();
-		deployCTokenRegistry(compV2Config);
-
+		deployFeedRegistry();
 		setUpFeeds(chainId);
+		deployCTokenRegistry(compV2Config);
 
 		// deploy lending adapters
-
 		deployAaveV2Adapter(aaveV2Config);
 		deployAaveV3Adapter(aaveV3Config);
 		deployCompoundV2Adapter(compV2Config);
 		deployCompoundV3Adapter(compV3Config);
+
+		deployLendingDispatcher();
+		deployStakingDispatcher();
 
 		// deploy staking adapters
-
-		deployConvexCurveAdapter();
-		deployCurveAdapter();
-		deployV3StakerAdapter();
-	}
-
-	function deployConfigurations() internal {
-		deployCreate3Factory();
-		deployAddressResolver();
-		deployACLManager();
-		deployFeedResolver();
-		deployCTokenRegistry(compV2Config);
-	}
-
-	function deployLenders() internal {
-		deployAaveV2Adapter(aaveV2Config);
-		deployAaveV3Adapter(aaveV3Config);
-		deployCompoundV2Adapter(compV2Config);
-		deployCompoundV3Adapter(compV3Config);
-	}
-
-	function deployStakers() internal {
 		deployConvexCurveAdapter();
 		deployCurveAdapter();
 		deployV3StakerAdapter();
