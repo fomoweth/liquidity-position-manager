@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {ICTokenRegistry} from "src/interfaces/ICTokenRegistry.sol";
 import {IAddressResolver} from "src/interfaces/IAddressResolver.sol";
+import {Arrays} from "src/libraries/Arrays.sol";
 import {Errors} from "src/libraries/Errors.sol";
 import {Currency, CurrencyLibrary} from "src/types/Currency.sol";
 import {Authority} from "src/base/Authority.sol";
@@ -12,6 +13,8 @@ import {Initializable} from "@openzeppelin/proxy/utils/Initializable.sol";
 /// @notice Registry of cTokens
 
 contract CTokenRegistry is ICTokenRegistry, Authority, Initializable {
+	using Arrays for Currency[];
+
 	mapping(address cToken => address underlying) internal _cTokenToUnderlying;
 	mapping(address underlying => address cToken) internal _underlyingToCToken;
 
@@ -57,7 +60,7 @@ contract CTokenRegistry is ICTokenRegistry, Authority, Initializable {
 		uint256 i;
 
 		while (i < length) {
-			register(cTokens[i].toAddress(), getUnderlying(cTokens[i]));
+			register(cTokens.at(i).toAddress(), toUnderlying(cTokens.at(i)));
 
 			unchecked {
 				i = i + 1;
@@ -66,7 +69,7 @@ contract CTokenRegistry is ICTokenRegistry, Authority, Initializable {
 	}
 
 	function registerCToken(Currency cToken) external authorized {
-		register(cToken.toAddress(), getUnderlying(cToken));
+		register(cToken.toAddress(), toUnderlying(cToken));
 	}
 
 	function deregisterCTokens(Currency[] calldata cTokens) external authorized {
@@ -74,7 +77,7 @@ contract CTokenRegistry is ICTokenRegistry, Authority, Initializable {
 		uint256 i;
 
 		while (i < length) {
-			deregister(cTokens[i].toAddress());
+			deregister(cTokens.at(i).toAddress());
 
 			unchecked {
 				i = i + 1;
@@ -137,8 +140,8 @@ contract CTokenRegistry is ICTokenRegistry, Authority, Initializable {
 		cTokens = new Currency[](length);
 
 		while (i < length) {
-			if (!isDeprecated(allCTokens[i])) {
-				cTokens[count] = allCTokens[i];
+			if (!isDeprecated(allCTokens.at(i))) {
+				cTokens[count] = allCTokens.at(i);
 
 				unchecked {
 					count = count + 1;
@@ -219,7 +222,7 @@ contract CTokenRegistry is ICTokenRegistry, Authority, Initializable {
 		}
 	}
 
-	function getUnderlying(Currency cToken) internal view returns (address underlying) {
+	function toUnderlying(Currency cToken) internal view returns (address underlying) {
 		if (cToken == cNATIVE) return WRAPPED_NATIVE.toAddress();
 
 		assembly ("memory-safe") {

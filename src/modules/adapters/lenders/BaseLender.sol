@@ -10,16 +10,6 @@ import {BaseModule} from "src/modules/BaseModule.sol";
 /// @notice Abstract base for lending adapters
 
 abstract contract BaseLender is BaseModule {
-	enum ReserveError {
-		NoError,
-		ZeroAddress,
-		ZeroAmount,
-		NotSupported,
-		NotCollateral,
-		NotBorrowable,
-		NotActive
-	}
-
 	address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 	address internal constant BTC = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
 	address internal constant USD = 0x0000000000000000000000000000000000000348;
@@ -117,31 +107,5 @@ abstract contract BaseLender is BaseModule {
 			asset := calldataload(add(params.offset, 0x20))
 			amount := calldataload(add(params.offset, 0x40))
 		}
-	}
-
-	function verifyReserve(
-		Currency market,
-		Currency asset,
-		uint256 amount,
-		bool useAsCollateral
-	) internal view {
-		_validate(_verifyReserve(market, asset, amount, useAsCollateral));
-	}
-
-	function _verifyReserve(
-		Currency market,
-		Currency asset,
-		uint256 amount,
-		bool useAsCollateral
-	) internal view virtual returns (ReserveError);
-
-	function _validate(ReserveError err) private pure {
-		if (err == ReserveError.NoError) return;
-		else if (err == ReserveError.ZeroAddress) revert Errors.ZeroAddress();
-		else if (err == ReserveError.ZeroAmount) revert Errors.ZeroAmount();
-		else if (err == ReserveError.NotSupported) revert Errors.NotSupported();
-		else if (err == ReserveError.NotCollateral) revert Errors.NotCollateral();
-		else if (err == ReserveError.NotBorrowable) revert Errors.NotBorrowable();
-		else if (err == ReserveError.NotActive) revert Errors.NotActive();
 	}
 }

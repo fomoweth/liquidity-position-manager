@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {Errors} from "src/libraries/Errors.sol";
+
 type Currency is address;
 
 using {
@@ -30,8 +32,9 @@ function lt(Currency currency, Currency other) pure returns (bool) {
 	return Currency.unwrap(currency) < Currency.unwrap(other);
 }
 
-function toCurrency(address currency) pure returns (Currency) {
-	return Currency.wrap(currency);
+function toCurrency(address target) pure returns (Currency) {
+	if (target == address(0)) revert Errors.ZeroAddress();
+	return Currency.wrap(target);
 }
 
 /// @title CurrencyLibrary

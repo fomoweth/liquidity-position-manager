@@ -311,8 +311,7 @@ contract FeedRegistry is IFeedRegistry, Authority, Initializable {
 	}
 
 	function resolveFeed(Currency base, address quote) internal view returns (address feed) {
-		feed = getFeed(base, quote);
-		if (feed == address(0)) revert FeedNotExists();
+		if ((feed = getFeed(base, quote)) == address(0)) revert FeedNotExists();
 	}
 
 	function derivePrice(

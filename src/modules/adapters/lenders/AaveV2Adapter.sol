@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {ILender} from "src/interfaces/ILender.sol";
+import {Arrays} from "src/libraries/Arrays.sol";
 import {BytesLib} from "src/libraries/BytesLib.sol";
 import {Errors} from "src/libraries/Errors.sol";
 import {FullMath} from "src/libraries/FullMath.sol";
@@ -14,6 +15,7 @@ import {BaseLender} from "./BaseLender.sol";
 /// @notice Provides the functionality of making calls to Aave-V2 contracts for the Client
 
 contract AaveV2Adapter is ILender, BaseLender {
+	using Arrays for Currency[];
 	using BytesLib for bytes;
 	using CurrencyLibrary for Currency;
 	using FullMath for uint256;
@@ -67,8 +69,6 @@ contract AaveV2Adapter is ILender, BaseLender {
 
 		(, Currency asset, uint256 amount) = decode(params);
 
-		verifyReserve(CurrencyLibrary.ZERO, asset, amount, true);
-
 		approveIfNeeded(asset, lendingPool, amount);
 
 		assembly ("memory-safe") {
@@ -102,8 +102,6 @@ contract AaveV2Adapter is ILender, BaseLender {
 
 		(, Currency asset, uint256 amount) = decode(params);
 
-		verifyReserve(CurrencyLibrary.ZERO, asset, amount, false);
-
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
@@ -136,8 +134,6 @@ contract AaveV2Adapter is ILender, BaseLender {
 
 		(, Currency asset, uint256 amount) = decode(params);
 
-		// verifyReserve(CurrencyLibrary.ZERO, asset, amount, false);
-
 		approveIfNeeded(asset, lendingPool, amount);
 
 		assembly ("memory-safe") {
@@ -149,7 +145,7 @@ contract AaveV2Adapter is ILender, BaseLender {
 			mstore(add(ptr, 0x44), 0x02)
 			mstore(add(ptr, 0x64), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
 
-			if iszero(call(gas(), lendingPool, 0x00, ptr, 0x84, 0x00, 0x20)) {
+			if iszero(call(gas(), lendingPool, 0x00, ptr, 0x84, 0x00, 0x00)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
@@ -171,8 +167,6 @@ contract AaveV2Adapter is ILender, BaseLender {
 
 		(, Currency asset, uint256 amount) = decode(params);
 
-		// verifyReserve(CurrencyLibrary.ZERO, asset, amount, true);
-
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
@@ -181,7 +175,7 @@ contract AaveV2Adapter is ILender, BaseLender {
 			mstore(add(ptr, 0x24), amount)
 			mstore(add(ptr, 0x44), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
 
-			if iszero(call(gas(), lendingPool, 0x00, ptr, 0x64, 0x00, 0x20)) {
+			if iszero(call(gas(), lendingPool, 0x00, ptr, 0x64, 0x00, 0x00)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
@@ -425,7 +419,7 @@ contract AaveV2Adapter is ILender, BaseLender {
 					if (isAssetIn(userConfig, i)) {
 						(, , , , , , , Currency aToken, , Currency vdToken, , ) = getReserveData(
 							lendingPool,
-							reserves[i]
+							reserves.at(i)
 						);
 
 						if (isSupplying(userConfig, i)) {
@@ -457,7 +451,7 @@ contract AaveV2Adapter is ILender, BaseLender {
 
 			mstore(ptr, 0xd1946dbc00000000000000000000000000000000000000000000000000000000)
 
-			if iszero(staticcall(gas(), lendingPool, ptr, 0x04, 0x00, 0x20)) {
+			if iszero(staticcall(gas(), lendingPool, ptr, 0x04, 0x00, 0x00)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
@@ -659,33 +653,6 @@ contract AaveV2Adapter is ILender, BaseLender {
 		}
 	}
 
-	function _verifyReserve(
-		Currency,
-		Currency asset,
-		uint256 amount,
-		bool useAsCollateral
-	) internal view virtual override returns (ReserveError) {
-		if (asset.isZero()) return ReserveError.ZeroAddress;
-		if (amount == 0) return ReserveError.ZeroAmount;
-
-		(uint256 configuration, , , , , , , Currency aToken, , Currency vdToken, , ) = getReserveData(
-			LENDING_POOL,
-			asset
-		);
-
-		if (!isReserveActive(configuration)) return ReserveError.NotActive;
-
-		if (useAsCollateral) {
-			if (aToken.isZero()) return ReserveError.NotSupported;
-			if (!isCollateralAsset(configuration)) return ReserveError.NotCollateral;
-		} else {
-			if (vdToken.isZero()) return ReserveError.NotSupported;
-			if (!isBorrowAsset(configuration)) return ReserveError.NotBorrowable;
-		}
-
-		return ReserveError.NoError;
-	}
-
 	function isCollateralAsset(uint256 configuration) internal pure returns (bool) {
 		return
 			getValue(configuration, LTV_MASK, 0) != 0 &&
@@ -780,11 +747,4 @@ contract AaveV2Adapter is ILender, BaseLender {
 			return compoundedInterest.rayMul(borrowIndex);
 		}
 	}
-
-	// function decode(bytes calldata params) internal pure returns (Currency asset, uint256 amount) {
-	// 	assembly ("memory-safe") {
-	// 		asset := calldataload(params.offset)
-	// 		amount := calldataload(add(params.offset, 0x20))
-	// 	}
-	// }
 }

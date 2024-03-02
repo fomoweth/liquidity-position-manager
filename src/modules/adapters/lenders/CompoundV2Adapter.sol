@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {ILender} from "src/interfaces/ILender.sol";
 import {ICTokenRegistry} from "src/interfaces/ICTokenRegistry.sol";
+import {Arrays} from "src/libraries/Arrays.sol";
 import {BytesLib} from "src/libraries/BytesLib.sol";
 import {Errors} from "src/libraries/Errors.sol";
 import {FullMath} from "src/libraries/FullMath.sol";
@@ -15,6 +16,7 @@ import {BaseLender} from "./BaseLender.sol";
 /// @notice Provides the functionality of making calls to Compound-V2 contracts for the Client
 
 contract CompoundV2Adapter is ILender, BaseLender {
+	using Arrays for Currency[];
 	using BytesLib for bytes;
 	using CurrencyLibrary for Currency;
 	using FullMath for uint256;
@@ -68,8 +70,6 @@ contract CompoundV2Adapter is ILender, BaseLender {
 	) public payable authorized checkDelegateCall returns (uint128, uint40) {
 		(Currency cToken, Currency asset, uint256 amount) = decode(params);
 
-		verifyReserve(cToken, asset, amount, true);
-
 		bool isCNative = cToken == cNATIVE;
 
 		if (!isCNative) {
@@ -90,9 +90,7 @@ contract CompoundV2Adapter is ILender, BaseLender {
 	function borrow(
 		bytes calldata params
 	) public payable authorized checkDelegateCall returns (uint128, uint40) {
-		(Currency cToken, Currency asset, uint256 amount) = decode(params);
-
-		verifyReserve(cToken, asset, amount, false);
+		(Currency cToken, , uint256 amount) = decode(params);
 
 		invoke(cToken, false, CTOKEN_BORROW_SELECTOR, amount);
 
@@ -105,8 +103,6 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		bytes calldata params
 	) public payable authorized checkDelegateCall returns (uint128, uint40) {
 		(Currency cToken, Currency asset, uint256 amount) = decode(params);
-
-		verifyReserve(cToken, asset, amount, false);
 
 		bool isCNative = cToken == cNATIVE;
 
@@ -126,9 +122,7 @@ contract CompoundV2Adapter is ILender, BaseLender {
 	function redeem(
 		bytes calldata params
 	) public payable authorized checkDelegateCall returns (uint128, uint40) {
-		(Currency cToken, Currency asset, uint256 amount) = decode(params);
-
-		verifyReserve(cToken, asset, amount, true);
+		(Currency cToken, , uint256 amount) = decode(params);
 
 		invoke(cToken, false, CTOKEN_REDEEM_UNDERLYING_SELECTOR, amount);
 
@@ -280,7 +274,7 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		uint256 i;
 
 		while (i < length) {
-			Currency cToken = cTokens[i];
+			Currency cToken = cTokens.at(i);
 
 			(uint256 cTokenBalance, uint256 borrowBalance, ) = getAccountSnapshot(cToken, account);
 
@@ -670,7 +664,7 @@ contract CompoundV2Adapter is ILender, BaseLender {
 
 			mstore(ptr, 0xb0772d0b00000000000000000000000000000000000000000000000000000000)
 
-			if iszero(staticcall(gas(), comptroller, ptr, 0x04, 0x00, 0x20)) {
+			if iszero(staticcall(gas(), comptroller, ptr, 0x04, 0x00, 0x00)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
@@ -681,16 +675,27 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		}
 
 		Currency[] memory allCTokens = abi.decode(returndata, (Currency[]));
-
 		if (!filterDeprecated) return allCTokens;
 
-		cTokens = new Currency[](allCTokens.length);
+		uint256 length = allCTokens.length;
+		uint256 i;
 		uint256 count;
 
-		for (uint256 i; i < allCTokens.length; ++i) {
-			if (!isDeprecated(comptroller, allCTokens[i])) {
-				cTokens[count] = allCTokens[i];
-				++count;
+		cTokens = new Currency[](length);
+
+		while (i < length) {
+			Currency cToken = allCTokens.at(i);
+
+			if (!isDeprecated(comptroller, cToken)) {
+				cTokens[count] = cToken;
+
+				unchecked {
+					count = count + 1;
+				}
+			}
+
+			unchecked {
+				i = i + 1;
 			}
 		}
 
@@ -1103,27 +1108,5 @@ contract CompoundV2Adapter is ILender, BaseLender {
 
 			paused := mload(0x00)
 		}
-	}
-
-	function _verifyReserve(
-		Currency cToken,
-		Currency asset,
-		uint256 amount,
-		bool useAsCollateral
-	) internal view virtual override returns (ReserveError) {
-		if (cToken.isZero() || asset.isZero()) return ReserveError.ZeroAddress;
-		if (amount == 0) return ReserveError.ZeroAmount;
-		if (cTokenToUnderlying(cToken) != asset) return ReserveError.NotSupported;
-
-		address comptroller = COMPTROLLER;
-
-		if (useAsCollateral) {
-			if (getLtv(comptroller, cToken) == 0) return ReserveError.NotCollateral;
-			if (isMintPaused(comptroller, cToken)) return ReserveError.NotActive;
-		} else {
-			if (isBorrowPaused(comptroller, cToken)) return ReserveError.NotActive;
-		}
-
-		return ReserveError.NoError;
 	}
 }

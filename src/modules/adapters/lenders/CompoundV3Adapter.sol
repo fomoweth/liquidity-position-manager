@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {ILender} from "src/interfaces/ILender.sol";
+import {Arrays} from "src/libraries/Arrays.sol";
 import {BytesLib} from "src/libraries/BytesLib.sol";
 import {Errors} from "src/libraries/Errors.sol";
 import {FullMath} from "src/libraries/FullMath.sol";
@@ -15,6 +16,7 @@ import {BaseLender} from "./BaseLender.sol";
 /// @notice Provides the functionality of making calls to Compound-V3 contracts for the Client
 
 contract CompoundV3Adapter is ILender, BaseLender {
+	using Arrays for Currency[];
 	using BytesLib for bytes;
 	using CurrencyLibrary for Currency;
 	using FullMath for uint256;
@@ -107,8 +109,6 @@ contract CompoundV3Adapter is ILender, BaseLender {
 	{
 		(Currency comet, Currency asset, uint256 amount) = decode(params);
 
-		verifyReserve(comet, asset, amount, true);
-
 		approveIfNeeded(asset, comet.toAddress(), amount);
 
 		invoke(comet, COMET_SUPPLY_SELECTOR, asset, amount);
@@ -127,8 +127,6 @@ contract CompoundV3Adapter is ILender, BaseLender {
 	{
 		(Currency comet, Currency asset, uint256 amount) = decode(params);
 
-		verifyReserve(comet, asset, amount, false);
-
 		invoke(comet, COMET_WITHDRAW_SELECTOR, asset, amount);
 
 		(, reserveIndex, , , , , lastAccruedTimestamp, ) = totalsBasic(comet);
@@ -144,8 +142,6 @@ contract CompoundV3Adapter is ILender, BaseLender {
 		returns (uint128 reserveIndex, uint40 lastAccruedTimestamp)
 	{
 		(Currency comet, Currency asset, uint256 amount) = decode(params);
-
-		verifyReserve(comet, asset, amount, false);
 
 		approveIfNeeded(asset, comet.toAddress(), amount);
 
@@ -164,8 +160,6 @@ contract CompoundV3Adapter is ILender, BaseLender {
 		returns (uint128 reserveIndex, uint40 lastAccruedTimestamp)
 	{
 		(Currency comet, Currency asset, uint256 amount) = decode(params);
-
-		verifyReserve(comet, asset, amount, true);
 
 		invoke(comet, COMET_WITHDRAW_SELECTOR, asset, amount);
 
@@ -842,24 +836,6 @@ contract CompoundV3Adapter is ILender, BaseLender {
 
 			baseFeed := mload(0x00)
 		}
-	}
-
-	function _verifyReserve(
-		Currency comet,
-		Currency asset,
-		uint256 amount,
-		bool useAsCollateral
-	) internal view virtual override returns (ReserveError) {
-		if (comet.isZero() || asset.isZero()) return ReserveError.ZeroAddress;
-		if (amount == 0) return ReserveError.ZeroAmount;
-
-		if (useAsCollateral) {
-			//
-		}
-
-		// (, , , , , , , uint8 pauseFlags) = totalsBasic(comet);
-
-		return ReserveError.NoError;
 	}
 
 	function computeUtilization(
