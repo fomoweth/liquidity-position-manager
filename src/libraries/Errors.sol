@@ -15,6 +15,8 @@ library Errors {
 
 	error EmptyArray();
 
+	error AccessDenied();
+
 	error ConfiguredAlready();
 
 	error ExistsAlready();
