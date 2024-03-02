@@ -23,6 +23,7 @@ abstract contract BaseTest is Test, Assertion, Fork, Deployer, CurveUtils {
 	function setUp() public virtual {}
 
 	function _setUp(uint256 chainId, bool forkOnBlock) internal virtual {
+		// set up test environment
 		setUpForks(forkOnBlock);
 		fork(chainId);
 
@@ -33,7 +34,6 @@ abstract contract BaseTest is Test, Assertion, Fork, Deployer, CurveUtils {
 		deployCreate3Factory();
 		deployAddressResolver();
 		deployACLManager();
-		deployClientFactory();
 		deployModuleRegistry();
 
 		// deploy utils contracts
@@ -55,6 +55,9 @@ abstract contract BaseTest is Test, Assertion, Fork, Deployer, CurveUtils {
 		// deploy dispatchers
 		deployLendingDispatcher();
 		deployStakingDispatcher();
+
+		// deploy client factory and client-implementation
+		deployClientFactory();
 	}
 
 	function setUpLenders(uint256 chainId) internal {
