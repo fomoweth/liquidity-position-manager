@@ -7,7 +7,6 @@ import {ERC721Utils} from "src/libraries/ERC721Utils.sol";
 import {Errors} from "src/libraries/Errors.sol";
 import {Incentive} from "src/libraries/Incentive.sol";
 import {LiquidityAmounts} from "src/libraries/LiquidityAmounts.sol";
-import {SafeCast} from "src/libraries/SafeCast.sol";
 import {TickMath} from "src/libraries/TickMath.sol";
 import {Currency, CurrencyLibrary, toCurrency} from "src/types/Currency.sol";
 import {PoolKey, toPoolKey} from "src/types/PoolKey.sol";
@@ -21,30 +20,26 @@ contract V3StakerAdapterTest is BaseTest, V3Utils {
 	using CurrencyLibrary for Currency;
 	using ERC721Utils for address;
 	using Incentive for Incentive.Key;
-	using SafeCast for uint256;
 
 	MockV3StakerAdapter adapter;
 
 	function setUp() public virtual override {
 		_setUp(ETHEREUM_CHAIN_ID, true);
 
-		adapter = new MockV3StakerAdapter(address(resolver), UNI_V3_ID, WRAPPED_NATIVE);
-
-		vm.label(address(adapter), "MockV3StakerAdapter");
+		vm.label(
+			address(adapter = new MockV3StakerAdapter(address(resolver), UNI_V3_ID, WRAPPED_NATIVE)),
+			"MockV3StakerAdapter"
+		);
 	}
 
 	function test_stakingActions_DAI_WETH_3000() public {
-		simulate(DAI, WETH, 3000, 10 ether, 10 ether, 30);
+		simulate(DAI, WETH, 3000);
 	}
 
-	function simulate(
-		Currency currency0,
-		Currency currency1,
-		uint24 fee,
-		uint256 amount0InETH,
-		uint256 amount1InETH,
-		uint256 duration
-	) internal {
+	function simulate(Currency currency0, Currency currency1, uint24 fee) internal {
+		uint256 ethAmount = 10 ether;
+		uint256 duration = 30;
+
 		PoolKey memory poolKey = toPoolKey(currency0, currency1, fee);
 
 		address pool = poolKey.compute();
@@ -56,13 +51,13 @@ contract V3StakerAdapterTest is BaseTest, V3Utils {
 		bytes32 incentive1Id = incentive1.compute();
 
 		uint256 amount0Desired = convertFromETH(
-			amount0InETH,
+			ethAmount,
 			feedRegistry.latestAnswerETH(currency0),
 			currency0.decimals()
 		);
 
 		uint256 amount1Desired = convertFromETH(
-			amount1InETH,
+			ethAmount,
 			feedRegistry.latestAnswerETH(currency1),
 			currency1.decimals()
 		);

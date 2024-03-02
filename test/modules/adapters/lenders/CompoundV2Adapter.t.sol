@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {console2 as console} from "forge-std/Test.sol";
 import {PercentageMath} from "src/libraries/PercentageMath.sol";
 import {Currency, CurrencyLibrary} from "src/types/Currency.sol";
 import {MockCompoundV2Adapter} from "src/mocks/MockCompoundV2Adapter.sol";
 import {BaseTest} from "test/shared/BaseTest.t.sol";
 
-// forge test -vv --match-path test/modules/adapters/lenders/CompoundV2Adapter.t.sol
+// forge test -vvv --match-path test/modules/adapters/lenders/CompoundV2Adapter.t.sol
 
 contract CompoundV2AdapterTest is BaseTest {
 	using CurrencyLibrary for Currency;
@@ -18,20 +17,23 @@ contract CompoundV2AdapterTest is BaseTest {
 	function setUp() public virtual override {
 		_setUp(ETHEREUM_CHAIN_ID, true);
 
-		adapter = new MockCompoundV2Adapter(
-			address(resolver),
-			address(cTokenRegistry),
-			compV2Config.protocol,
-			compV2Config.comptroller,
-			compV2Config.oracle,
-			compV2Config.cNative,
-			compV2Config.cETH,
-			feedRegistry.getFeed(WETH, USD),
-			WRAPPED_NATIVE,
-			WETH
+		vm.label(
+			address(
+				adapter = new MockCompoundV2Adapter(
+					address(resolver),
+					address(cTokenRegistry),
+					compV2Config.protocol,
+					compV2Config.comptroller,
+					compV2Config.oracle,
+					compV2Config.cNative,
+					compV2Config.cETH,
+					feedRegistry.getFeed(WETH, USD),
+					WRAPPED_NATIVE,
+					WETH
+				)
+			),
+			"MockCompoundV2Adapter"
 		);
-
-		vm.label(address(adapter), "MockCompoundV2Adapter");
 	}
 
 	function test_enableMarket() public {
@@ -72,11 +74,13 @@ contract CompoundV2AdapterTest is BaseTest {
 
 		adapter.supply(abi.encode(cETH, WETH, ethSupply));
 
-		report("Supplied ETH");
+		assertApproxEqAbs(ethSupply, adapter.getSupplyBalance(cETH), ethSupply.percentMul(1));
+		assertTrue(adapter.checkMembership(cETH));
 
 		adapter.borrow(abi.encode(cDAI, DAI, daiBorrow));
 
-		report("Borrowed DAI");
+		assertApproxEqAbs(daiBorrow, adapter.getBorrowBalance(cDAI), daiBorrow.percentMul(1));
+		assertTrue(adapter.checkMembership(cDAI));
 
 		(uint256 wbtcSupply, uint256 usdtBorrow) = getSupplyAndBorrowAmounts(
 			adapter.getPrice(cWBTC),
@@ -92,95 +96,96 @@ contract CompoundV2AdapterTest is BaseTest {
 
 		adapter.supply(abi.encode(cWBTC, WBTC, wbtcSupply));
 
-		report("Supplied WBTC");
+		assertApproxEqAbs(wbtcSupply, adapter.getSupplyBalance(cWBTC), wbtcSupply.percentMul(1));
+		assertTrue(adapter.checkMembership(cWBTC));
 
 		adapter.borrow(abi.encode(cUSDT, USDT, usdtBorrow));
 
-		report("Borrowed USDT");
+		assertApproxEqAbs(usdtBorrow, adapter.getBorrowBalance(cUSDT), usdtBorrow.percentMul(1));
+		assertTrue(adapter.checkMembership(cUSDT));
 	}
 
 	function test_lendingActions_WETH_WBTC() public {
-		simulate(WETH, WBTC, 10 ether, 5000, 2500, 90);
+		simulate(WETH, WBTC);
 	}
 
 	function test_lendingActions_WETH_LINK() public {
-		simulate(WETH, LINK, 10 ether, 5000, 2500, 90);
+		simulate(WETH, LINK);
 	}
 
 	function test_lendingActions_WETH_UNI() public {
-		simulate(WETH, UNI, 10 ether, 5000, 2500, 90);
+		simulate(WETH, UNI);
 	}
 
 	function test_lendingActions_WETH_DAI() public {
-		simulate(WETH, DAI, 10 ether, 5000, 2500, 90);
+		simulate(WETH, DAI);
 	}
 
 	function test_lendingActions_WETH_USDC() public {
-		simulate(WETH, USDC, 10 ether, 5000, 2500, 90);
+		simulate(WETH, USDC);
 	}
 
 	function test_lendingActions_WETH_USDT() public {
-		simulate(WETH, USDT, 10 ether, 5000, 2500, 90);
+		simulate(WETH, USDT);
 	}
 
 	function test_lendingActions_WBTC_WETH() public {
-		simulate(WBTC, WETH, 10 ether, 5000, 2500, 90);
+		simulate(WBTC, WETH);
 	}
 
 	function test_lendingActions_WBTC_LINK() public {
-		simulate(WBTC, LINK, 10 ether, 5000, 2500, 90);
+		simulate(WBTC, LINK);
 	}
 
 	function test_lendingActions_WBTC_UNI() public {
-		simulate(WBTC, UNI, 10 ether, 5000, 2500, 90);
+		simulate(WBTC, UNI);
 	}
 
 	function test_lendingActions_WBTC_DAI() public {
-		simulate(WBTC, DAI, 10 ether, 5000, 2500, 90);
+		simulate(WBTC, DAI);
 	}
 
 	function test_lendingActions_WBTC_USDC() public {
-		simulate(WBTC, USDC, 10 ether, 5000, 2500, 90);
+		simulate(WBTC, USDC);
 	}
 
 	function test_lendingActions_WBTC_USDT() public {
-		simulate(WBTC, USDT, 10 ether, 5000, 2500, 90);
+		simulate(WBTC, USDT);
 	}
 
 	function test_lendingActions_DAI_WETH() public {
-		simulate(DAI, WETH, 10 ether, 5000, 2500, 90);
+		simulate(DAI, WETH);
 	}
 
 	function test_lendingActions_DAI_WBTC() public {
-		simulate(DAI, WBTC, 10 ether, 5000, 2500, 90);
+		simulate(DAI, WBTC);
 	}
 
 	function test_lendingActions_DAI_LINK() public {
-		simulate(DAI, LINK, 10 ether, 5000, 2500, 90);
+		simulate(DAI, LINK);
 	}
 
 	function test_lendingActions_DAI_UNI() public {
-		simulate(DAI, UNI, 10 ether, 5000, 2500, 90);
+		simulate(DAI, UNI);
 	}
 
 	function test_lendingActions_DAI_USDC() public {
-		simulate(DAI, USDC, 10 ether, 5000, 2500, 90);
+		simulate(DAI, USDC);
 	}
 
 	function test_lendingActions_DAI_USDT() public {
-		simulate(DAI, USDT, 10 ether, 5000, 2500, 90);
+		simulate(DAI, USDT);
 	}
 
-	function simulate(
-		Currency collateralAsset,
-		Currency borrowAsset,
-		uint256 ethAmount,
-		uint256 collateralUsage,
-		uint256 debtRatio,
-		uint256 duration
-	) internal {
+	function simulate(Currency collateralAsset, Currency borrowAsset) internal {
+		uint256 ethAmount = 10 ether;
+		uint256 collateralUsage = 5000;
+		uint256 debtRatio = 2500;
+		uint256 duration = 90;
+
 		Currency collateralMarket = cTokenRegistry.underlyingToCToken(collateralAsset);
 		uint256 collateralUnit = collateralAsset.decimals();
+
 		uint256 ltv = adapter.getLtv(collateralMarket);
 		assertGt(ltv, 0);
 
@@ -200,6 +205,7 @@ contract CompoundV2AdapterTest is BaseTest {
 		deal(collateralAsset, address(adapter), supplyAmount);
 
 		adapter.supply(abi.encode(collateralMarket, collateralAsset, supplyAmount));
+
 		assertApproxEqAbs(
 			supplyAmount,
 			adapter.getSupplyBalance(collateralMarket),
@@ -208,6 +214,7 @@ contract CompoundV2AdapterTest is BaseTest {
 		assertTrue(adapter.checkMembership(collateralMarket));
 
 		adapter.borrow(abi.encode(borrowMarket, borrowAsset, borrowAmount));
+
 		assertApproxEqAbs(borrowAmount, adapter.getBorrowBalance(borrowMarket), borrowAmount.percentMul(1));
 		assertTrue(adapter.checkMembership(borrowMarket));
 
@@ -232,6 +239,7 @@ contract CompoundV2AdapterTest is BaseTest {
 		if (borrowBalance < repayAmount) repayAmount = borrowBalance;
 
 		adapter.repay(abi.encode(borrowMarket, borrowAsset, repayAmount));
+
 		assertApproxEqAbs(
 			debt - repayAmount,
 			adapter.getBorrowBalance(borrowMarket),
@@ -239,27 +247,11 @@ contract CompoundV2AdapterTest is BaseTest {
 		);
 
 		adapter.redeem(abi.encode(collateralMarket, collateralAsset, redeemAmount));
+
 		assertApproxEqAbs(
 			collaterals - redeemAmount,
 			adapter.getSupplyBalance(collateralMarket),
 			(collaterals - redeemAmount).percentMul(1)
 		);
-	}
-
-	function report(string memory title) internal view {
-		(
-			uint256 totalCollateral,
-			uint256 totalLiability,
-			uint256 availableLiquidity,
-			uint256 healthFactor
-		) = adapter.getAccountLiquidity();
-
-		console.log(title);
-		console.log("");
-		console.log("totalCollateral:", totalCollateral);
-		console.log("totalLiability:", totalLiability);
-		console.log("availableLiquidity:", availableLiquidity);
-		console.log("healthFactor:", healthFactor);
-		console.log("");
 	}
 }

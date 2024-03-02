@@ -29,5 +29,7 @@ contract Constants {
 	address constant USD = 0x0000000000000000000000000000000000000348;
 	address constant MATIC = 0x0000000000000000000000000000000000001010;
 
+	bytes constant ZERO_BYTES = new bytes(0);
+
 	uint256 constant WAD = 1e18;
 }

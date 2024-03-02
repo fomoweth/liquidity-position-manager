@@ -2,8 +2,6 @@
 pragma solidity ^0.8.20;
 
 abstract contract Encoder {
-	bytes constant ZERO_BYTES = new bytes(0);
-
 	function toBytes32(string memory value) internal pure returns (bytes32) {
 		return bytes32(bytes(value));
 	}

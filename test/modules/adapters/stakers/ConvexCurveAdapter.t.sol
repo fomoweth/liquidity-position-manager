@@ -15,9 +15,12 @@ abstract contract ConvexCurveAdapterTest is BaseTest {
 	MockConvexCurveAdapter adapter;
 
 	function setUp() public virtual override {
-		adapter = new MockConvexCurveAdapter(address(resolver), CVX_ID, WRAPPED_NATIVE, CRV, CVX);
-
-		vm.label(address(adapter), "MockConvexCurveAdapter");
+		vm.label(
+			address(
+				adapter = new MockConvexCurveAdapter(address(resolver), CVX_ID, WRAPPED_NATIVE, CRV, CVX)
+			),
+			"MockConvexCurveAdapter"
+		);
 	}
 
 	function simulate(
@@ -25,11 +28,12 @@ abstract contract ConvexCurveAdapterTest is BaseTest {
 		uint256 pid,
 		uint256 offset,
 		uint256 length,
-		uint256 ethAmount,
 		bool useUnderlying,
-		uint256 duration,
 		Currency[] memory rewardTokens
 	) internal {
+		uint256 ethAmount = 10 ether;
+		uint256 duration = 90;
+
 		assertEq(
 			keccak256(abi.encode(adapter.getRewardsList(abi.encode(pid)))),
 			keccak256(abi.encode(rewardTokens))
@@ -107,29 +111,11 @@ contract ConvexCurveAdapterTestMainnet is ConvexCurveAdapterTest {
 	}
 
 	function test_stakingActions_3CRV() public {
-		simulate(
-			0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7,
-			9,
-			0,
-			3,
-			10 ether,
-			false,
-			90,
-			setCurrencies(CRV, CVX)
-		);
+		simulate(0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7, 9, 0, 3, false, setCurrencies(CRV, CVX));
 	}
 
 	function test_stakingActions_FRAXBP() public {
-		simulate(
-			0xDcEF968d416a41Cdac0ED8702fAC8128A64241A2,
-			100,
-			0,
-			2,
-			10 ether,
-			false,
-			90,
-			setCurrencies(CRV, CVX)
-		);
+		simulate(0xDcEF968d416a41Cdac0ED8702fAC8128A64241A2, 100, 0, 2, false, setCurrencies(CRV, CVX));
 	}
 
 	function test_stakingActions_a3CRV() public {
@@ -138,24 +124,13 @@ contract ConvexCurveAdapterTestMainnet is ConvexCurveAdapterTest {
 			24,
 			0,
 			3,
-			10 ether,
 			true,
-			90,
 			setCurrencies(CRV, CVX, toCurrency(0x4da27a545c0c5B758a6BA100e3a049001de870f5))
 		);
 	}
 
 	function test_stakingActions_FRAX3CRV() public {
-		simulate(
-			0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B,
-			32,
-			0,
-			2,
-			10 ether,
-			false,
-			90,
-			setCurrencies(CRV, CVX, FXS)
-		);
+		simulate(0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B, 32, 0, 2, false, setCurrencies(CRV, CVX, FXS));
 	}
 
 	function test_stakingActions_MIM3CRV() public {
@@ -164,9 +139,7 @@ contract ConvexCurveAdapterTestMainnet is ConvexCurveAdapterTest {
 			40,
 			0,
 			2,
-			10 ether,
 			false,
-			90,
 			setCurrencies(CRV, CVX, toCurrency(0x090185f2135308BaD17527004364eBcC2D37e5F6))
 		);
 	}
@@ -177,37 +150,17 @@ contract ConvexCurveAdapterTestMainnet is ConvexCurveAdapterTest {
 			25,
 			0,
 			2,
-			10 ether,
 			false,
-			90,
 			setCurrencies(CRV, CVX, toCurrency(0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32), wstETH)
 		);
 	}
 
 	function test_stakingActions_cbETH() public {
-		simulate(
-			0x5FAE7E604FC3e24fd43A72867ceBaC94c65b404A,
-			127,
-			0,
-			2,
-			10 ether,
-			false,
-			90,
-			setCurrencies(CRV, CVX)
-		);
+		simulate(0x5FAE7E604FC3e24fd43A72867ceBaC94c65b404A, 127, 0, 2, false, setCurrencies(CRV, CVX));
 	}
 
 	function test_stakingActions_rETH() public {
-		simulate(
-			0x0f3159811670c117c372428D4E69AC32325e4D0F,
-			154,
-			0,
-			2,
-			10 ether,
-			false,
-			90,
-			setCurrencies(CRV, CVX)
-		);
+		simulate(0x0f3159811670c117c372428D4E69AC32325e4D0F, 154, 0, 2, false, setCurrencies(CRV, CVX));
 	}
 }
 
@@ -218,16 +171,7 @@ contract ConvexCurveAdapterTestPolygon is ConvexCurveAdapterTest {
 	}
 
 	function test_stakingActions_am3CRV_Polygon() public {
-		simulate(
-			0x445FE580eF8d70FF569aB36e80c647af338db351,
-			2,
-			0,
-			3,
-			10 ether,
-			true,
-			90,
-			setCurrencies(CRV, CVX)
-		);
+		simulate(0x445FE580eF8d70FF569aB36e80c647af338db351, 2, 0, 3, true, setCurrencies(CRV, CVX));
 	}
 
 	// function test_stakingActions_amTricrypto_Polygon() public {
@@ -236,24 +180,13 @@ contract ConvexCurveAdapterTestPolygon is ConvexCurveAdapterTest {
 	// 		3,
 	// 		2,
 	// 		3,
-	// 		10 ether,
 	// 		false,
-	// 		90,
 	// 		setCurrencies(CRV, CVX)
 	// 	);
 	// }
 
 	function test_stakingActions_amTricryptoMatic_Polygon() public {
-		simulate(
-			0x7BBc0e92505B485aeb3e82E828cb505DAf1E50c6,
-			9,
-			0,
-			2,
-			10 ether,
-			false,
-			90,
-			setCurrencies(CRV, CVX)
-		);
+		simulate(0x7BBc0e92505B485aeb3e82E828cb505DAf1E50c6, 9, 0, 2, false, setCurrencies(CRV, CVX));
 	}
 }
 
@@ -264,29 +197,11 @@ contract ConvexCurveAdapterTestArbitrum is ConvexCurveAdapterTest {
 	}
 
 	function test_stakingActions_2CRV_Arbitrum() public {
-		simulate(
-			0x7f90122BF0700F9E7e1F688fe926940E8839F353,
-			7,
-			1,
-			2,
-			10 ether,
-			false,
-			90,
-			setCurrencies(CRV, CVX, ARB)
-		);
+		simulate(0x7f90122BF0700F9E7e1F688fe926940E8839F353, 7, 1, 2, false, setCurrencies(CRV, CVX, ARB));
 	}
 
 	function test_stakingActions_FRAXBP_Arbitrum() public {
-		simulate(
-			0xC9B8a3FDECB9D5b218d02555a8Baf332E5B740d5,
-			10,
-			0,
-			2,
-			10 ether,
-			false,
-			90,
-			setCurrencies(CRV, CVX)
-		);
+		simulate(0xC9B8a3FDECB9D5b218d02555a8Baf332E5B740d5, 10, 0, 2, false, setCurrencies(CRV, CVX));
 	}
 
 	function test_stakingActions_frxETH_Arbitrum() public {
@@ -295,9 +210,7 @@ contract ConvexCurveAdapterTestArbitrum is ConvexCurveAdapterTest {
 			14,
 			0,
 			2,
-			10 ether,
 			false,
-			90,
 			setCurrencies(CRV, toCurrency(0xaAFcFD42c9954C6689ef1901e03db742520829c5))
 		);
 	}

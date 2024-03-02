@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {IStaker} from "src/interfaces/IStaker.sol";
 import {Currency, CurrencyLibrary, toCurrency} from "src/types/Currency.sol";
 import {MockCurveAdapter} from "src/mocks/MockCurveAdapter.sol";
 import {Reward} from "test/shared/states/DataTypes.sol";
@@ -17,9 +16,10 @@ contract CurveAdapterTest is BaseTest {
 	function setUp() public virtual override {
 		_setUp(ETHEREUM_CHAIN_ID, true);
 
-		adapter = new MockCurveAdapter(address(resolver), CVX_ID, WRAPPED_NATIVE, CRV);
-
-		vm.label(address(adapter), "MockCurveAdapter");
+		vm.label(
+			address(adapter = new MockCurveAdapter(address(resolver), CVX_ID, WRAPPED_NATIVE, CRV)),
+			"MockCurveAdapter"
+		);
 	}
 
 	function test_stakingActions_3CRV() public {
@@ -29,9 +29,7 @@ contract CurveAdapterTest is BaseTest {
 			toCurrency(0xbFcF63294aD7105dEa65aA58F8AE5BE2D9d0952A),
 			0,
 			3,
-			15 ether,
 			false,
-			30,
 			setCurrencies(CRV)
 		);
 	}
@@ -43,9 +41,7 @@ contract CurveAdapterTest is BaseTest {
 			toCurrency(0xCFc25170633581Bf896CB6CDeE170e3E3Aa59503),
 			0,
 			2,
-			15 ether,
 			false,
-			30,
 			setCurrencies(CRV)
 		);
 	}
@@ -57,9 +53,7 @@ contract CurveAdapterTest is BaseTest {
 			toCurrency(0xd662908ADA2Ea1916B3318327A97eB18aD588b5d),
 			0,
 			3,
-			15 ether,
 			true,
-			30,
 			setCurrencies(CRV, toCurrency(0x4da27a545c0c5B758a6BA100e3a049001de870f5))
 		);
 	}
@@ -71,9 +65,7 @@ contract CurveAdapterTest is BaseTest {
 			toCurrency(0x72E158d38dbd50A483501c24f792bDAAA3e7D55C),
 			0,
 			2,
-			15 ether,
 			false,
-			30,
 			setCurrencies(CRV, FXS)
 		);
 	}
@@ -85,9 +77,7 @@ contract CurveAdapterTest is BaseTest {
 			toCurrency(0xd8b712d29381748dB89c36BCa0138d7c75866ddF),
 			0,
 			2,
-			15 ether,
 			false,
-			30,
 			setCurrencies(CRV, toCurrency(0x090185f2135308BaD17527004364eBcC2D37e5F6))
 		);
 	}
@@ -99,9 +89,7 @@ contract CurveAdapterTest is BaseTest {
 			toCurrency(0x182B723a58739a9c974cFDB385ceaDb237453c28),
 			0,
 			2,
-			15 ether,
 			false,
-			30,
 			setCurrencies(CRV, toCurrency(0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32), wstETH)
 		);
 	}
@@ -113,9 +101,7 @@ contract CurveAdapterTest is BaseTest {
 			toCurrency(0xAd96E10123Fa34a01cf2314C42D75150849C9295),
 			0,
 			2,
-			15 ether,
 			false,
-			30,
 			setCurrencies(CRV)
 		);
 	}
@@ -126,11 +112,12 @@ contract CurveAdapterTest is BaseTest {
 		Currency gauge,
 		uint256 offset,
 		uint256 length,
-		uint256 ethAmount,
 		bool useUnderlying,
-		uint256 duration,
 		Currency[] memory rewardTokens
 	) internal {
+		uint256 ethAmount = 15 ether;
+		uint256 duration = 30;
+
 		assertEq(
 			keccak256(abi.encode(adapter.getRewardsList(abi.encode(gauge)))),
 			keccak256(abi.encode(rewardTokens))
