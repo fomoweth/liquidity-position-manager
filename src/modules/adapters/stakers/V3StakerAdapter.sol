@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {IStaker} from "src/interfaces/IStaker.sol";
+import {Arrays} from "src/libraries/Arrays.sol";
 import {BytesLib} from "src/libraries/BytesLib.sol";
 import {UNISWAP_V3_NFT, UNISWAP_V3_STAKER} from "src/libraries/Constants.sol";
 import {ERC721Utils} from "src/libraries/ERC721Utils.sol";
@@ -17,6 +18,7 @@ import {BaseModule} from "src/modules/BaseModule.sol";
 /// @notice Provides the functionality of making calls to V3Staker for the Client
 
 contract V3StakerAdapter is IStaker, BaseModule {
+	using Arrays for bytes32[];
 	using BytesLib for bytes;
 	using CurrencyLibrary for Currency;
 	using ERC721Utils for address;
@@ -124,7 +126,7 @@ contract V3StakerAdapter is IStaker, BaseModule {
 		uint256 index;
 
 		while (index < length) {
-			if (cached[index] == incentiveId) break;
+			if (cached.at(index) == incentiveId) break;
 
 			unchecked {
 				index = index + 1;
@@ -183,7 +185,7 @@ contract V3StakerAdapter is IStaker, BaseModule {
 		pendingRewards = new PendingReward[](length);
 
 		while (i < length) {
-			Currency rewardToken = state.incentives[cached[i]].rewardToken;
+			Currency rewardToken = state.incentives[cached.at(i)].rewardToken;
 
 			pendingRewards[i] = PendingReward(rewardToken, rewards(rewardToken));
 
@@ -209,7 +211,7 @@ contract V3StakerAdapter is IStaker, BaseModule {
 		rewardAssets = new Currency[](length);
 
 		while (i < length) {
-			rewardAssets[i] = state.incentives[cached[i]].rewardToken;
+			rewardAssets[i] = state.incentives[cached.at(i)].rewardToken;
 
 			unchecked {
 				i = i + 1;
