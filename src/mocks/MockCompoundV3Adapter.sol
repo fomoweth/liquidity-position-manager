@@ -18,14 +18,14 @@ contract MockCompoundV3Adapter is CompoundV3Adapter {
 	) CompoundV3Adapter(_resolver, _protocol, _configurator, _rewards, _ethUsdFeed, _wrappedNative, _weth) {}
 
 	function getBorrowBalance(Currency comet) public view returns (uint256 borrowBalance) {
-		return borrowBalanceOf(comet);
+		return borrowBalanceOf(comet, address(this));
 	}
 
 	function getCollateralBalance(
 		Currency comet,
 		Currency asset
 	) public view returns (uint256 collateralBalance) {
-		return collateralBalanceOf(comet, asset);
+		return collateralBalanceOf(comet, asset, address(this));
 	}
 
 	function getPrice(Currency comet, Currency asset) public view returns (uint256) {
@@ -83,6 +83,10 @@ contract MockCompoundV3Adapter is CompoundV3Adapter {
 
 	function getRewardAsset(Currency comet) public view returns (Currency rewardAsset) {
 		(rewardAsset, , ) = rewardConfig(REWARDS, comet);
+	}
+
+	function isAuthorized(address) internal view virtual override returns (bool) {
+		return true;
 	}
 
 	function _checkDelegateCall() internal view virtual override {}

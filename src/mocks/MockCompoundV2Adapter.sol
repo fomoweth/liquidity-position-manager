@@ -10,6 +10,8 @@ contract MockCompoundV2Adapter is CompoundV2Adapter {
 	using CurrencyLibrary for Currency;
 	using WadRayMath for uint256;
 
+	bytes constant ZERO_BYTES = new bytes(0);
+
 	constructor(
 		address _resolver,
 		address _cTokenRegistry,
@@ -37,7 +39,7 @@ contract MockCompoundV2Adapter is CompoundV2Adapter {
 	{}
 
 	function claimRewards() public payable {
-		this.claimRewards("0x");
+		this.claimRewards(ZERO_BYTES);
 	}
 
 	function getReserveIndices(Currency cToken) public view returns (uint256, uint256) {
@@ -45,11 +47,11 @@ contract MockCompoundV2Adapter is CompoundV2Adapter {
 	}
 
 	function getPendingRewards() public view returns (uint256) {
-		return getPendingRewards(COMPTROLLER);
+		return getPendingRewards(COMPTROLLER, address(this));
 	}
 
 	function getMarketsIn() public view returns (Currency[] memory) {
-		return getMarketsIn(COMPTROLLER);
+		return getMarketsIn(COMPTROLLER, address(this));
 	}
 
 	function getReservesList() public view returns (Currency[] memory) {
@@ -73,7 +75,8 @@ contract MockCompoundV2Adapter is CompoundV2Adapter {
 	function getBorrowBalance(Currency cToken) public view returns (uint256) {
 		(, uint256 borrowIndexNew) = accruedInterestIndices(cToken);
 
-		return FullMath.mulDiv(borrowBalanceStored(cToken), borrowIndexNew, borrowIndex(cToken));
+		return
+			FullMath.mulDiv(borrowBalanceStored(cToken, address(this)), borrowIndexNew, borrowIndex(cToken));
 	}
 
 	function getLtv(Currency cToken) public view returns (uint256) {
@@ -101,6 +104,10 @@ contract MockCompoundV2Adapter is CompoundV2Adapter {
 
 			accountMembership := mload(0x00)
 		}
+	}
+
+	function isAuthorized(address) internal view virtual override returns (bool) {
+		return true;
 	}
 
 	function _checkDelegateCall() internal view virtual override {}

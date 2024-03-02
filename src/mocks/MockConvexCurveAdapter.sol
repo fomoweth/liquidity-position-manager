@@ -46,6 +46,10 @@ contract MockConvexCurveAdapter is ConvexCurveAdapter {
 		}
 	}
 
+	function isAuthorized(address) internal view virtual override returns (bool) {
+		return true;
+	}
+
 	function _checkDelegateCall() internal view virtual override {}
 
 	function _noDelegateCall() internal view virtual override {}

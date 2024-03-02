@@ -7,6 +7,8 @@ import {Currency, CurrencyLibrary} from "src/types/Currency.sol";
 contract MockAaveV3Adapter is AaveV3Adapter {
 	using CurrencyLibrary for Currency;
 
+	bytes constant ZERO_BYTES = new bytes(0);
+
 	constructor(
 		address _resolver,
 		bytes32 _protocol,
@@ -32,15 +34,15 @@ contract MockAaveV3Adapter is AaveV3Adapter {
 	{}
 
 	function claimRewards() public payable {
-		this.claimRewards("0x");
+		this.claimRewards(ZERO_BYTES);
 	}
 
 	function getPendingRewards(Currency rewardAsset) public view returns (uint256) {
-		return getPendingRewards(INCENTIVES, rewardAsset);
+		return getPendingRewards(INCENTIVES, rewardAsset, address(this));
 	}
 
 	function getMarketsIn() public view returns (Currency[] memory) {
-		return getMarketsIn(LENDING_POOL, INCENTIVES, false);
+		return getMarketsIn(LENDING_POOL, INCENTIVES, false, address(this));
 	}
 
 	function getReservesList() public view returns (Currency[] memory) {
@@ -132,7 +134,7 @@ contract MockAaveV3Adapter is AaveV3Adapter {
 	}
 
 	function getUserConfiguration() public view returns (uint256) {
-		return getUserConfiguration(LENDING_POOL);
+		return getUserConfiguration(LENDING_POOL, address(this));
 	}
 
 	function getUserAccountData()
@@ -147,7 +149,7 @@ contract MockAaveV3Adapter is AaveV3Adapter {
 			uint256 healthFactor
 		)
 	{
-		return getUserAccountData(LENDING_POOL);
+		return getUserAccountData(LENDING_POOL, address(this));
 	}
 
 	function getPrice(Currency asset) public view returns (uint256) {
@@ -161,17 +163,17 @@ contract MockAaveV3Adapter is AaveV3Adapter {
 	function isAssetIn(Currency asset) public view returns (bool) {
 		(, , , , , , , uint16 id, , , , , , , ) = getReserveData(LENDING_POOL, asset);
 
-		return isAssetIn(getUserConfiguration(LENDING_POOL), id);
+		return isAssetIn(getUserConfiguration(LENDING_POOL, address(this)), id);
 	}
 
 	function isSupplying(Currency asset) public view returns (bool) {
 		(, , , , , , , uint16 id, , , , , , , ) = getReserveData(LENDING_POOL, asset);
-		return isSupplying(getUserConfiguration(LENDING_POOL), id);
+		return isSupplying(getUserConfiguration(LENDING_POOL, address(this)), id);
 	}
 
 	function isBorrowing(Currency asset) public view returns (bool) {
 		(, , , , , , , uint16 id, , , , , , , ) = getReserveData(LENDING_POOL, asset);
-		return isBorrowing(getUserConfiguration(LENDING_POOL), id);
+		return isBorrowing(getUserConfiguration(LENDING_POOL, address(this)), id);
 	}
 
 	function isAuthorized(address) internal view virtual override returns (bool) {
