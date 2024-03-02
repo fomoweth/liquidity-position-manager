@@ -42,5 +42,29 @@ interface ILender {
 
 	function claimRewards(bytes calldata params) external payable;
 
+	function getAccountLiquidity(
+		bytes calldata params
+	)
+		external
+		view
+		returns (
+			uint256 totalCollateral,
+			uint256 totalLiability,
+			uint256 availableLiquidity,
+			uint256 healthFactor
+		);
+
+	function getSupplyBalance(bytes calldata params) external view returns (uint256 supplyBalance);
+
+	function getBorrowBalance(bytes calldata params) external view returns (uint256 borrowBalance);
+
 	function getReserveData(bytes calldata params) external view returns (ReserveData memory reserveData);
+
+	function getReserveIndices(
+		bytes calldata params
+	) external view returns (uint256 supplyIndex, uint256 borrowIndex, uint256 lastAccrualTime);
+
+	function getLtv(bytes calldata params) external view returns (uint256);
+
+	function getAssetPrice(bytes calldata params) external view returns (uint256);
 }
