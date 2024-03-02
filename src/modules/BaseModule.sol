@@ -12,14 +12,14 @@ import {Singleton} from "src/base/Singleton.sol";
 /// @title BaseModule
 
 abstract contract BaseModule is Authority, Chain, Singleton, Payments {
-	bytes32 public immutable protocol;
+	bytes32 public immutable key;
 
 	IAddressResolver internal immutable resolver;
 
 	uint256 internal constant MAX_UINT256 = 2 ** 256 - 1;
 
-	constructor(address _resolver, bytes32 _protocol, Currency _wrappedNative) Payments(_wrappedNative) {
-		protocol = _protocol;
+	constructor(address _resolver, bytes32 _key, Currency _wrappedNative) Payments(_wrappedNative) {
+		key = _key;
 		resolver = IAddressResolver(_resolver);
 	}
 

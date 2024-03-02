@@ -3,7 +3,11 @@ pragma solidity ^0.8.20;
 
 import {IAddressResolver} from "src/interfaces/IAddressResolver.sol";
 import {IACLManager} from "src/interfaces/IACLManager.sol";
+import {IClientFactory} from "src/interfaces/IClientFactory.sol";
 import {IFeedRegistry} from "src/interfaces/IFeedRegistry.sol";
+import {ILendingDispatcher} from "src/interfaces/ILendingDispatcher.sol";
+import {IStakingDispatcher} from "src/interfaces/IStakingDispatcher.sol";
+import {IModuleRegistry} from "src/interfaces/IModuleRegistry.sol";
 import {Ownable} from "@openzeppelin/access/Ownable.sol";
 
 /// @title AddressResolver
@@ -15,7 +19,11 @@ contract AddressResolver is IAddressResolver, Ownable {
 
 	bytes32 internal constant ACL_ADMIN = keccak256(bytes("ACL_ADMIN"));
 	bytes32 internal constant ACL_MANAGER = keccak256(bytes("ACL_MANAGER"));
+	bytes32 internal constant CLIENT_FACTORY = keccak256(bytes("CLIENT_FACTORY"));
+	bytes32 internal constant MODULE_REGISTRY = keccak256(bytes("MODULE_REGISTRY"));
 	bytes32 internal constant FEED_REGISTRY = keccak256(bytes("FEED_REGISTRY"));
+	bytes32 internal constant LENDING_DISPATCHER = keccak256(bytes("LENDING_DISPATCHER"));
+	bytes32 internal constant STAKING_DISPATCHER = keccak256(bytes("STAKING_DISPATCHER"));
 
 	constructor(address initialOwner) Ownable(initialOwner) {}
 
@@ -44,12 +52,44 @@ contract AddressResolver is IAddressResolver, Ownable {
 		setAddress(ACL_MANAGER, newACLManager);
 	}
 
+	function getClientFactory() external view returns (IClientFactory) {
+		return IClientFactory(getAddress(CLIENT_FACTORY));
+	}
+
+	function setClientFactory(address newClientFactory) external onlyOwner {
+		setAddress(CLIENT_FACTORY, newClientFactory);
+	}
+
+	function getModuleRegistry() external view returns (IModuleRegistry) {
+		return IModuleRegistry(getAddress(MODULE_REGISTRY));
+	}
+
+	function setModuleRegistry(address newModuleRegistry) external onlyOwner {
+		setAddress(MODULE_REGISTRY, newModuleRegistry);
+	}
+
 	function getFeedRegistry() external view returns (IFeedRegistry) {
 		return IFeedRegistry(getAddress(FEED_REGISTRY));
 	}
 
 	function setFeedRegistry(address newFeedRegistry) external onlyOwner {
 		setAddress(FEED_REGISTRY, newFeedRegistry);
+	}
+
+	function getLendingDispatcher() external view returns (ILendingDispatcher) {
+		return ILendingDispatcher(getAddress(LENDING_DISPATCHER));
+	}
+
+	function setLendingDispatcher(address newLendingDispatcher) external onlyOwner {
+		setAddress(LENDING_DISPATCHER, newLendingDispatcher);
+	}
+
+	function getStakingDispatcher() external view returns (IStakingDispatcher) {
+		return IStakingDispatcher(getAddress(STAKING_DISPATCHER));
+	}
+
+	function setStakingDispatcher(address newStakingDispatcher) external onlyOwner {
+		setAddress(STAKING_DISPATCHER, newStakingDispatcher);
 	}
 
 	function isZeroAddress(address target) internal pure returns (bool res) {
