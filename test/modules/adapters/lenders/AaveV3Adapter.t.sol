@@ -286,7 +286,7 @@ contract AaveV3AdapterTest is BaseTest {
 				adapter.isBorrowing(borrowAsset)
 		);
 
-		vm.warp(vm.getBlockTimestamp() + (duration * 1 days));
+		warp(duration);
 
 		uint256 collaterals = aToken.balanceOf(address(adapter));
 		uint256 debt = vdToken.balanceOf(address(adapter));

@@ -93,7 +93,7 @@ contract CompoundV3AdapterTest is BaseTest {
 
 		assertApproxEqAbs(borrowAmount, adapter.getBorrowBalance(comet), 5);
 
-		vm.warp(vm.getBlockTimestamp() + (duration * 1 days));
+		warp(duration);
 
 		uint256 collaterals = adapter.getCollateralBalance(comet, collateralAsset);
 		uint256 debt = adapter.getBorrowBalance(comet);

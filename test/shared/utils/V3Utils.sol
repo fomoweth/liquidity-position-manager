@@ -5,6 +5,7 @@ import {CommonBase} from "forge-std/Base.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
 import {UNISWAP_V3_NFT, UNISWAP_V3_STAKER} from "src/libraries/Constants.sol";
 import {Incentive} from "src/libraries/Incentive.sol";
+import {LiquidityAmounts} from "src/libraries/LiquidityAmounts.sol";
 import {SafeCast} from "src/libraries/SafeCast.sol";
 import {TickMath} from "src/libraries/TickMath.sol";
 import {Currency, CurrencyLibrary} from "src/types/Currency.sol";
@@ -27,9 +28,9 @@ abstract contract V3Utils is CommonBase, StdCheats {
 	) internal returns (Incentive.Key memory incentive) {
 		if (reward == 0) reward = DEFAULT_REWARDS * (10 ** rewardToken.decimals());
 
-		vm.startPrank(incentiveCreator);
-
 		deal(rewardToken.toAddress(), incentiveCreator, reward);
+
+		vm.startPrank(incentiveCreator);
 
 		rewardToken.approve(UNISWAP_V3_STAKER, reward);
 
@@ -138,6 +139,48 @@ abstract contract V3Utils is CommonBase, StdCheats {
 		}
 	}
 
+	function mint(
+		Currency currency0,
+		Currency currency1,
+		uint24 fee,
+		int24 tickLower,
+		int24 tickUpper,
+		uint256 amount0Desired,
+		uint256 amount1Desired,
+		address recipient
+	) internal returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1) {
+		currency0.approve(UNISWAP_V3_NFT, amount0Desired);
+		currency1.approve(UNISWAP_V3_NFT, amount1Desired);
+
+		assembly ("memory-safe") {
+			let ptr := mload(0x40)
+			let res := add(ptr, 0x164)
+
+			mstore(ptr, 0x8831645600000000000000000000000000000000000000000000000000000000)
+			mstore(add(ptr, 0x04), and(currency0, 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x24), and(currency1, 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x44), and(fee, 0xffffff))
+			mstore(add(ptr, 0x64), tickLower)
+			mstore(add(ptr, 0x84), tickUpper)
+			mstore(add(ptr, 0xa4), amount0Desired)
+			mstore(add(ptr, 0xc4), amount1Desired)
+			mstore(add(ptr, 0xe4), 0x00)
+			mstore(add(ptr, 0x104), 0x00)
+			mstore(add(ptr, 0x124), and(recipient, 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x144), timestamp())
+
+			if iszero(call(gas(), UNISWAP_V3_NFT, 0x00, ptr, 0x164, res, 0x80)) {
+				returndatacopy(ptr, 0x00, returndatasize())
+				revert(ptr, returndatasize())
+			}
+
+			tokenId := mload(res)
+			liquidity := mload(add(res, 0x20))
+			amount0 := mload(add(res, 0x40))
+			amount1 := mload(add(res, 0x60))
+		}
+	}
+
 	function positions(
 		uint256 tokenId
 	)
@@ -219,18 +262,62 @@ abstract contract V3Utils is CommonBase, StdCheats {
 		}
 	}
 
-	function getTick(address pool) internal view returns (int24 tick) {
+	function getSqrtPriceX96(address pool) internal view returns (uint160 sqrtPriceX96) {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
+			let res := add(ptr, 0x04)
 
 			mstore(ptr, 0x3850c7bd00000000000000000000000000000000000000000000000000000000)
 
-			if iszero(staticcall(gas(), pool, ptr, 0x04, 0x00, 0xc0)) {
+			if iszero(staticcall(gas(), pool, ptr, 0x04, res, 0xc0)) {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
 
-			tick := mload(0x20)
+			sqrtPriceX96 := mload(res)
 		}
+	}
+
+	function getTick(address pool) internal view returns (int24 tick) {
+		assembly ("memory-safe") {
+			let ptr := mload(0x40)
+			let res := add(ptr, 0x04)
+
+			mstore(ptr, 0x3850c7bd00000000000000000000000000000000000000000000000000000000)
+
+			if iszero(staticcall(gas(), pool, ptr, 0x04, res, 0xc0)) {
+				returndatacopy(ptr, 0x00, returndatasize())
+				revert(ptr, returndatasize())
+			}
+
+			tick := mload(add(res, 0x20))
+		}
+	}
+
+	function getLiquidityAndAmounts(
+		address pool,
+		int24 tickLower,
+		int24 tickUpper,
+		uint256 amount0Desired,
+		uint256 amount1Desired
+	) internal view returns (uint128 liquidity, uint256 amount0, uint256 amount1) {
+		uint160 sqrtRatioX96 = getSqrtPriceX96(pool);
+		uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
+		uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
+
+		liquidity = LiquidityAmounts.getLiquidityForAmounts(
+			sqrtRatioX96,
+			sqrtRatioAX96,
+			sqrtRatioBX96,
+			amount0Desired,
+			amount1Desired
+		);
+
+		(amount0, amount1) = LiquidityAmounts.getAmountsForLiquidity(
+			sqrtRatioX96,
+			sqrtRatioAX96,
+			sqrtRatioBX96,
+			liquidity
+		);
 	}
 }

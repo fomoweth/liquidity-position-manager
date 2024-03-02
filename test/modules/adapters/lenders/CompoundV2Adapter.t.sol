@@ -218,7 +218,7 @@ contract CompoundV2AdapterTest is BaseTest {
 		assertApproxEqAbs(borrowAmount, adapter.getBorrowBalance(borrowMarket), borrowAmount.percentMul(1));
 		assertTrue(adapter.checkMembership(borrowMarket));
 
-		vm.warp(vm.getBlockTimestamp() + (duration * 1 days));
+		warp(duration);
 
 		uint256 collaterals = adapter.getSupplyBalance(collateralMarket);
 		uint256 debt = adapter.getBorrowBalance(borrowMarket);

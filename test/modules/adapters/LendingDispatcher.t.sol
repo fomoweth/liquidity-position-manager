@@ -21,7 +21,7 @@ contract LendingDispatcherTest is BaseTest {
 			address(
 				dispatcher = new MockLendingDispatcher(
 					address(resolver),
-					bytes32(bytes("LENDING_DISPATCHER")),
+					toBytes32("LENDING_DISPATCHER"),
 					WRAPPED_NATIVE,
 					address(this)
 				)
@@ -116,7 +116,7 @@ contract LendingDispatcherTest is BaseTest {
 			borrowAmount.percentMul(1)
 		);
 
-		vm.warp(vm.getBlockTimestamp() + (duration * 1 days));
+		warp(duration);
 
 		uint256 collaterals = dispatcher.getSupplyBalance(key, collateralMarket, collateralAsset);
 		uint256 debt = dispatcher.getBorrowBalance(key, borrowMarket, borrowAsset);

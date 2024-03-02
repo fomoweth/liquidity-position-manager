@@ -53,7 +53,7 @@ abstract contract ConvexCurveAdapterTest is BaseTest {
 
 		assertEq(liquidity, rewardPool.balanceOf(address(adapter)));
 
-		vm.warp(vm.getBlockTimestamp() + (duration * 1 days));
+		warp(duration);
 
 		if (vm.activeFork() != mainnetFork) adapter.userCheckpoint(rewardPool);
 
@@ -89,8 +89,6 @@ abstract contract ConvexCurveAdapterTest is BaseTest {
 	}
 
 	function verifyClaim(Reward[] memory rewards) internal {
-		assertTrue(true);
-
 		for (uint256 i; i < rewards.length; ++i) {
 			Currency rewardAsset = rewards[i].asset;
 

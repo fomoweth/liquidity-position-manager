@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {console2 as console} from "forge-std/Test.sol";
 import {Test} from "forge-std/Test.sol";
 import {Currency, CurrencyLibrary, toCurrency} from "src/types/Currency.sol";
 import {Currencies} from "test/shared/states/Currencies.sol";
@@ -10,8 +11,9 @@ import {CurveUtils} from "test/shared/utils/CurveUtils.sol";
 import {Common} from "test/shared/utils/Common.sol";
 import {Deployer} from "test/shared/utils/Deployer.sol";
 import {Fork} from "test/shared/utils/Fork.sol";
+import {V3Utils} from "test/shared/utils/V3Utils.sol";
 
-abstract contract BaseTest is Test, Assertion, Fork, Deployer, CurveUtils {
+abstract contract BaseTest is Test, Assertion, Fork, Deployer, CurveUtils, V3Utils {
 	using CurrencyLibrary for Currency;
 
 	AaveConfig aaveV2Config;
@@ -175,6 +177,10 @@ abstract contract BaseTest is Test, Assertion, Fork, Deployer, CurveUtils {
 				cUSDCe: toCurrency(0xA5EDBDD9646f8dFF606d7448e414884C7d905dCA)
 			});
 		}
+	}
+
+	function warp(uint256 numberOfDays) internal {
+		vm.warp(vm.getBlockTimestamp() + (numberOfDays * 1 days));
 	}
 
 	function deal(Currency currency, address account, uint256 amount, bool adjust) internal {

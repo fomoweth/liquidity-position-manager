@@ -11,12 +11,11 @@ import {TickMath} from "src/libraries/TickMath.sol";
 import {Currency, CurrencyLibrary, toCurrency} from "src/types/Currency.sol";
 import {PoolKey, toPoolKey} from "src/types/PoolKey.sol";
 import {MockV3StakerAdapter} from "src/mocks/MockV3StakerAdapter.sol";
-import {V3Utils} from "test/shared/utils/V3Utils.sol";
 import {BaseTest} from "test/shared/BaseTest.t.sol";
 
 // forge test -vvv --match-path test/modules/adapters/stakers/V3StakerAdapter.t.sol
 
-contract V3StakerAdapterTest is BaseTest, V3Utils {
+contract V3StakerAdapterTest is BaseTest {
 	using CurrencyLibrary for Currency;
 	using ERC721Utils for address;
 	using Incentive for Incentive.Key;
@@ -32,8 +31,16 @@ contract V3StakerAdapterTest is BaseTest, V3Utils {
 		);
 	}
 
+	function test_stakingActions_DAI_WETH_500() public {
+		simulate(DAI, WETH, 500);
+	}
+
 	function test_stakingActions_DAI_WETH_3000() public {
 		simulate(DAI, WETH, 3000);
+	}
+
+	function test_stakingActions_DAI_WETH_10000() public {
+		simulate(DAI, WETH, 10000);
 	}
 
 	function simulate(Currency currency0, Currency currency1, uint24 fee) internal {
@@ -43,6 +50,10 @@ contract V3StakerAdapterTest is BaseTest, V3Utils {
 		PoolKey memory poolKey = toPoolKey(currency0, currency1, fee);
 
 		address pool = poolKey.compute();
+
+		Currency[] memory rewardAssets = new Currency[](2);
+		rewardAssets[0] = currency0;
+		rewardAssets[1] = currency1;
 
 		Incentive.Key memory incentive0 = createIncentive(pool, currency0, 0, 0);
 		bytes32 incentive0Id = incentive0.compute();
@@ -69,15 +80,15 @@ contract V3StakerAdapterTest is BaseTest, V3Utils {
 		int24 tickLower = TickMath.minUsableTick(tickSpacing);
 		int24 tickUpper = TickMath.maxUsableTick(tickSpacing);
 
-		uint256 tokenId = adapter.mint(
-			currency0,
-			currency1,
-			fee,
+		(, uint256 amount0, uint256 amount1) = getLiquidityAndAmounts(
+			pool,
 			tickLower,
 			tickUpper,
 			amount0Desired,
 			amount1Desired
 		);
+
+		uint256 tokenId = adapter.mint(currency0, currency1, fee, tickLower, tickUpper, amount0, amount1);
 
 		assertEq(UNISWAP_V3_NFT.ownerOf(tokenId), address(adapter));
 
@@ -91,13 +102,10 @@ contract V3StakerAdapterTest is BaseTest, V3Utils {
 
 		assertEq(UNISWAP_V3_NFT.ownerOf(tokenId), UNISWAP_V3_STAKER);
 
-		Currency[] memory expected = new Currency[](2);
-		expected[0] = currency0;
-		expected[1] = currency1;
-
-		Currency[] memory rewardAssets = adapter.getRewardsList(abi.encode(tokenId));
-
-		assertEq(keccak256(abi.encode(expected)), keccak256(abi.encode(rewardAssets)));
+		assertEq(
+			keccak256(abi.encode(adapter.getRewardsList(abi.encode(tokenId)))),
+			keccak256(abi.encode(rewardAssets))
+		);
 
 		uint256 index0 = adapter.getIncentiveIndex(tokenId, incentive0Id);
 		uint256 index1 = adapter.getIncentiveIndex(tokenId, incentive1Id);
@@ -117,7 +125,7 @@ contract V3StakerAdapterTest is BaseTest, V3Utils {
 			keccak256(abi.encode(incentive1))
 		);
 
-		vm.warp(vm.getBlockTimestamp() + (duration * 1 days));
+		warp(duration);
 
 		uint256 rewards0Prior = currency0.balanceOf(address(adapter));
 		uint256 rewards1Prior = currency1.balanceOf(address(adapter));

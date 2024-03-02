@@ -3,7 +3,6 @@ pragma solidity ^0.8.20;
 
 import {Currency, CurrencyLibrary, toCurrency} from "src/types/Currency.sol";
 import {MockCurveAdapter} from "src/mocks/MockCurveAdapter.sol";
-import {Reward} from "test/shared/states/DataTypes.sol";
 import {BaseTest} from "test/shared/BaseTest.t.sol";
 
 // forge test -vvv --match-path test/modules/adapters/stakers/CurveAdapter.t.sol
@@ -134,14 +133,29 @@ contract CurveAdapterTest is BaseTest {
 
 		assertEq(liquidity, gauge.balanceOf(address(adapter)));
 
-		vm.warp(vm.getBlockTimestamp() + (duration * 1 days));
-
-		uint256 snapshot = vm.snapshot();
+		warp(duration);
 
 		uint256[] memory rewardsPrior = fetchBalances(rewardTokens, address(adapter));
 
+		uint256 snapshot = vm.snapshot();
+
 		adapter.getRewards(abi.encode(gauge));
 
+		verifyClaim(rewardTokens, rewardsPrior);
+
+		vm.revertTo(snapshot);
+
+		uint256 staked = gauge.balanceOf(address(adapter));
+
+		adapter.unstake(abi.encode(gauge, staked));
+
+		verifyClaim(rewardTokens, rewardsPrior);
+
+		uint256 lpBalance = token.balanceOf(address(adapter));
+		assertEq(lpBalance, staked);
+	}
+
+	function verifyClaim(Currency[] memory rewardTokens, uint256[] memory rewardsPrior) internal {
 		uint256[] memory rewardsNew = fetchBalances(rewardTokens, address(adapter));
 
 		for (uint256 i; i < rewardsPrior.length; ++i) {
@@ -149,23 +163,5 @@ contract CurveAdapterTest is BaseTest {
 				assertGt(rewardsNew[i], rewardsPrior[i]);
 			}
 		}
-
-		vm.revertTo(snapshot);
-
-		rewardsPrior = fetchBalances(rewardTokens, address(adapter));
-
-		uint256 staked = gauge.balanceOf(address(adapter));
-
-		adapter.unstake(abi.encode(gauge, staked));
-
-		rewardsNew = fetchBalances(rewardTokens, address(adapter));
-
-		for (uint256 i; i < rewardsPrior.length; ++i) {
-			if (rewardsNew[i] != 0) {
-				assertGt(rewardsNew[i], rewardsPrior[i]);
-			}
-		}
-
-		assertEq(token.balanceOf(address(adapter)), staked);
 	}
 }
