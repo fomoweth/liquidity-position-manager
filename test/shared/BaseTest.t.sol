@@ -29,10 +29,8 @@ abstract contract BaseTest is Test, Assertion, Fork, Deployer, CurveUtils {
 		setUpCurrencies(chainId);
 		setUpLenders(chainId);
 
-		// deploy Create3Factory
-		deployCreate3Factory();
-
 		// deploy configuration contracts
+		deployCreate3Factory();
 		deployAddressResolver();
 		deployACLManager();
 		deployClientFactory();
@@ -49,13 +47,14 @@ abstract contract BaseTest is Test, Assertion, Fork, Deployer, CurveUtils {
 		deployCompoundV2Adapter(compV2Config);
 		deployCompoundV3Adapter(compV3Config);
 
-		deployLendingDispatcher();
-		deployStakingDispatcher();
-
 		// deploy staking adapters
 		deployConvexCurveAdapter();
 		deployCurveAdapter();
 		deployV3StakerAdapter();
+
+		// deploy dispatchers
+		deployLendingDispatcher();
+		deployStakingDispatcher();
 	}
 
 	function setUpLenders(uint256 chainId) internal {

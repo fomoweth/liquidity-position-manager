@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {console2 as console} from "forge-std/Test.sol";
 import {CommonBase} from "forge-std/Base.sol";
 import {ACLManager} from "src/configuration/ACLManager.sol";
 import {AddressResolver} from "src/configuration/AddressResolver.sol";
@@ -82,7 +81,7 @@ contract Deployer is CommonBase, Currencies {
 	}
 
 	function deployClient() internal {
-		client = Client(payable(factory.deploy()));
+		vm.label(address(client = Client(payable(factory.deploy()))), "Client");
 	}
 
 	function deployModuleRegistry() internal {
@@ -148,7 +147,7 @@ contract Deployer is CommonBase, Currencies {
 
 		resolver.setLendingDispatcher(address(lendingDispatcher));
 
-		bytes4[] memory signatures = new bytes4[](7);
+		bytes4[] memory signatures = new bytes4[](13);
 
 		signatures[0] = LendingDispatcher.supply.selector;
 		signatures[1] = LendingDispatcher.borrow.selector;
@@ -157,6 +156,12 @@ contract Deployer is CommonBase, Currencies {
 		signatures[4] = LendingDispatcher.enterMarket.selector;
 		signatures[5] = LendingDispatcher.exitMarket.selector;
 		signatures[6] = LendingDispatcher.claimRewards.selector;
+		signatures[7] = LendingDispatcher.getAccountLiquidity.selector;
+		signatures[8] = LendingDispatcher.getSupplyBalance.selector;
+		signatures[9] = LendingDispatcher.getBorrowBalance.selector;
+		signatures[10] = LendingDispatcher.getReserveData.selector;
+		signatures[11] = LendingDispatcher.getAssetPrice.selector;
+		signatures[12] = LendingDispatcher.getLtv.selector;
 
 		moduleRegistry.register(address(lendingDispatcher), signatures);
 	}
