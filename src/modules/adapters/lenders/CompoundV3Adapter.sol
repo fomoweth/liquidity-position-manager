@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {ILender} from "src/interfaces/ILender.sol";
+import {BytesLib} from "src/libraries/BytesLib.sol";
 import {Errors} from "src/libraries/Errors.sol";
 import {FullMath} from "src/libraries/FullMath.sol";
 import {PercentageMath} from "src/libraries/PercentageMath.sol";
@@ -14,6 +15,7 @@ import {BaseLender} from "./BaseLender.sol";
 /// @notice Provides the functionality of making calls to Compound-V3 contracts for the Client
 
 contract CompoundV3Adapter is ILender, BaseLender {
+	using BytesLib for bytes;
 	using CurrencyLibrary for Currency;
 	using FullMath for uint256;
 	using PercentageMath for uint256;
@@ -195,15 +197,13 @@ contract CompoundV3Adapter is ILender, BaseLender {
 
 	function claimRewards(bytes calldata params) public payable authorized checkDelegateCall {
 		address rewards = REWARDS;
+		address comet = params.toAddress();
 
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
 			mstore(ptr, 0xb7034f7e00000000000000000000000000000000000000000000000000000000) // claim(address,address,bool)
-			mstore(
-				add(ptr, 0x04),
-				and(calldataload(params.offset), 0xffffffffffffffffffffffffffffffffffffffff)
-			)
+			mstore(add(ptr, 0x04), and(comet, 0xffffffffffffffffffffffffffffffffffffffff))
 			mstore(add(ptr, 0x24), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
 			mstore(add(ptr, 0x44), and(0x01, 0xff))
 
@@ -227,12 +227,14 @@ contract CompoundV3Adapter is ILender, BaseLender {
 		)
 	{
 		Currency comet;
+		address account;
 
 		assembly ("memory-safe") {
 			comet := calldataload(params.offset)
+			account := calldataload(add(params.offset, 0x20))
 		}
 
-		(int104 principal, , , uint16 assetsIn, ) = userBasic(comet);
+		(int104 principal, , , uint16 assetsIn, ) = userBasic(comet, account);
 
 		(uint64 baseSupplyIndex, uint64 baseBorrowIndex, , , , , , ) = totalsBasic(comet);
 
@@ -265,7 +267,7 @@ contract CompoundV3Adapter is ILender, BaseLender {
 
 				) = getAssetInfo(comet, i);
 
-				uint256 collateralBalance = collateralBalanceOf(comet, asset);
+				uint256 collateralBalance = collateralBalanceOf(comet, asset, account);
 
 				if (collateralBalance != 0) {
 					uint256 collateralValue = collateralBalance.mulDiv(getPrice(comet, priceFeed), scale);
@@ -295,11 +297,35 @@ contract CompoundV3Adapter is ILender, BaseLender {
 			uint256 ethPrice = getETHPrice();
 
 			totalCollateral = derivePrice(totalCollateral, ethPrice, 8, 8, 18);
-
 			totalLiability = derivePrice(totalLiability, ethPrice, 8, 8, 18);
-
 			availableLiquidity = derivePrice(availableLiquidity, ethPrice, 8, 8, 18);
 		}
+	}
+
+	function getSupplyBalance(bytes calldata params) external view returns (uint256) {
+		Currency comet;
+		Currency asset;
+		address account;
+
+		assembly ("memory-safe") {
+			comet := calldataload(params.offset)
+			asset := calldataload(add(params.offset, 0x20))
+			account := calldataload(add(params.offset, 0x40))
+		}
+
+		return collateralBalanceOf(comet, asset, account);
+	}
+
+	function getBorrowBalance(bytes calldata params) external view returns (uint256) {
+		Currency comet;
+		address account;
+
+		assembly ("memory-safe") {
+			comet := calldataload(params.offset)
+			account := calldataload(add(params.offset, 0x20))
+		}
+
+		return borrowBalanceOf(comet, account);
 	}
 
 	function getReserveData(bytes calldata params) external view returns (ReserveData memory reserveData) {
@@ -347,8 +373,40 @@ contract CompoundV3Adapter is ILender, BaseLender {
 		reserveData.price = getPrice(comet, reserveData.priceFeed);
 	}
 
-	function getMarketsIn(Currency comet) internal view returns (Currency[] memory assets) {
-		(int104 principal, , , uint16 assetsIn, ) = userBasic(comet);
+	function getReserveIndices(
+		bytes calldata params
+	) external view returns (uint256 supplyIndex, uint256 borrowIndex, uint256 lastAccrualTime) {
+		return getReserveIndices(Currency.wrap(params.toAddress()));
+	}
+
+	function getLtv(bytes calldata params) external view returns (uint256 ltv) {
+		Currency comet;
+		Currency asset;
+
+		assembly ("memory-safe") {
+			comet := calldataload(params.offset)
+			asset := calldataload(add(params.offset, 0x20))
+		}
+
+		if (!isBaseAsset(comet, asset)) {
+			(, , , ltv, , , ) = getAssetInfoByAddress(comet, asset);
+		}
+	}
+
+	function getAssetPrice(bytes calldata params) external view returns (uint256) {
+		Currency comet;
+		Currency asset;
+
+		assembly ("memory-safe") {
+			comet := calldataload(params.offset)
+			asset := calldataload(add(params.offset, 0x20))
+		}
+
+		return getAssetPrice(comet, asset);
+	}
+
+	function getMarketsIn(Currency comet, address account) internal view returns (Currency[] memory assets) {
+		(int104 principal, , , uint16 assetsIn, ) = userBasic(comet, account);
 
 		AssetConfig[] memory configs = getConfiguration(CONFIGURATOR, comet).assetConfigs;
 		uint256 length = configs.length;
@@ -456,7 +514,8 @@ contract CompoundV3Adapter is ILender, BaseLender {
 	}
 
 	function userBasic(
-		Currency comet
+		Currency comet,
+		address account
 	)
 		internal
 		view
@@ -473,7 +532,7 @@ contract CompoundV3Adapter is ILender, BaseLender {
 			let res := add(ptr, 0x24)
 
 			mstore(ptr, 0xdc4abafd00000000000000000000000000000000000000000000000000000000)
-			mstore(add(ptr, 0x04), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x04), and(account, 0xffffffffffffffffffffffffffffffffffffffff))
 
 			if iszero(staticcall(gas(), comet, ptr, 0x24, res, 0xa0)) {
 				returndatacopy(ptr, 0x00, returndatasize())
@@ -488,12 +547,12 @@ contract CompoundV3Adapter is ILender, BaseLender {
 		}
 	}
 
-	function borrowBalanceOf(Currency comet) internal view returns (uint256 borrowBalance) {
+	function borrowBalanceOf(Currency comet, address account) internal view returns (uint256 borrowBalance) {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
 			mstore(ptr, 0x374c49b400000000000000000000000000000000000000000000000000000000)
-			mstore(add(ptr, 0x04), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x04), and(account, 0xffffffffffffffffffffffffffffffffffffffff))
 
 			if iszero(staticcall(gas(), comet, ptr, 0x24, 0x00, 0x20)) {
 				returndatacopy(ptr, 0x00, returndatasize())
@@ -506,13 +565,14 @@ contract CompoundV3Adapter is ILender, BaseLender {
 
 	function collateralBalanceOf(
 		Currency comet,
-		Currency asset
+		Currency asset,
+		address account
 	) internal view returns (uint256 collateralBalance) {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
 			mstore(ptr, 0x5c2549ee00000000000000000000000000000000000000000000000000000000)
-			mstore(add(ptr, 0x04), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x04), and(account, 0xffffffffffffffffffffffffffffffffffffffff))
 			mstore(add(ptr, 0x24), and(asset, 0xffffffffffffffffffffffffffffffffffffffff))
 
 			if iszero(staticcall(gas(), comet, ptr, 0x44, 0x00, 0x20)) {
@@ -838,16 +898,6 @@ contract CompoundV3Adapter is ILender, BaseLender {
 	function getFlag(uint16 flags, uint8 offset) internal pure returns (bool flag) {
 		assembly ("memory-safe") {
 			flag := and(flags, shl(0x01, offset))
-		}
-	}
-
-	function decode(
-		bytes calldata params
-	) internal pure returns (Currency comet, Currency asset, uint256 amount) {
-		assembly ("memory-safe") {
-			comet := calldataload(params.offset)
-			asset := calldataload(add(params.offset, 0x20))
-			amount := calldataload(add(params.offset, 0x40))
 		}
 	}
 }

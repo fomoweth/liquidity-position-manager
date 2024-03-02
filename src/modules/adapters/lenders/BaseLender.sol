@@ -109,6 +109,16 @@ abstract contract BaseLender is BaseModule {
 		}
 	}
 
+	function decode(
+		bytes calldata params
+	) internal pure returns (Currency market, Currency asset, uint256 amount) {
+		assembly ("memory-safe") {
+			market := calldataload(params.offset)
+			asset := calldataload(add(params.offset, 0x20))
+			amount := calldataload(add(params.offset, 0x40))
+		}
+	}
+
 	function verifyReserve(
 		Currency market,
 		Currency asset,

@@ -75,7 +75,7 @@ contract AaveV3Adapter is ILender, BaseLender {
 	{
 		address lendingPool = LENDING_POOL;
 
-		(Currency asset, uint256 amount) = decode(params);
+		(, Currency asset, uint256 amount) = decode(params);
 
 		verifyReserve(CurrencyLibrary.ZERO, asset, amount, true);
 
@@ -110,7 +110,7 @@ contract AaveV3Adapter is ILender, BaseLender {
 	{
 		address lendingPool = LENDING_POOL;
 
-		(Currency asset, uint256 amount) = decode(params);
+		(, Currency asset, uint256 amount) = decode(params);
 
 		verifyReserve(CurrencyLibrary.ZERO, asset, amount, false);
 
@@ -147,7 +147,7 @@ contract AaveV3Adapter is ILender, BaseLender {
 	{
 		address lendingPool = LENDING_POOL;
 
-		(Currency asset, uint256 amount) = decode(params);
+		(, Currency asset, uint256 amount) = decode(params);
 
 		approveIfNeeded(asset, lendingPool, amount);
 
@@ -185,7 +185,7 @@ contract AaveV3Adapter is ILender, BaseLender {
 	{
 		address lendingPool = LENDING_POOL;
 
-		(Currency asset, uint256 amount) = decode(params);
+		(, Currency asset, uint256 amount) = decode(params);
 
 		verifyReserve(CurrencyLibrary.ZERO, asset, amount, true);
 
@@ -232,7 +232,7 @@ contract AaveV3Adapter is ILender, BaseLender {
 	function claimRewards(bytes calldata) public payable authorized checkDelegateCall {
 		address incentives = INCENTIVES;
 
-		bytes memory markets = abi.encode(getMarketsIn(LENDING_POOL, incentives, true));
+		bytes memory markets = abi.encode(getMarketsIn(LENDING_POOL, incentives, true, address(this)));
 
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
@@ -259,6 +259,93 @@ contract AaveV3Adapter is ILender, BaseLender {
 				returndatacopy(ptr, 0x00, returndatasize())
 				revert(ptr, returndatasize())
 			}
+		}
+	}
+
+	function getAccountLiquidity(
+		bytes calldata params
+	)
+		external
+		view
+		returns (
+			uint256 totalCollateral,
+			uint256 totalLiability,
+			uint256 availableLiquidity,
+			uint256 healthFactor
+		)
+	{
+		(totalCollateral, totalLiability, availableLiquidity, , , healthFactor) = getUserAccountData(
+			LENDING_POOL,
+			params.toAddress()
+		);
+
+		if (denomination == USD) {
+			uint256 ethPrice = getETHPrice();
+
+			totalCollateral = derivePrice(totalCollateral, ethPrice, 8, 8, 18);
+			totalLiability = derivePrice(totalLiability, ethPrice, 8, 8, 18);
+			availableLiquidity = derivePrice(availableLiquidity, ethPrice, 8, 8, 18);
+		}
+	}
+
+	function getSupplyBalance(bytes calldata params) external view returns (uint256) {
+		Currency asset;
+		address account;
+
+		assembly ("memory-safe") {
+			asset := calldataload(params.offset)
+			account := calldataload(add(params.offset, 0x20))
+		}
+
+		(, , , , , , , , Currency aToken, , , , , , ) = getReserveData(LENDING_POOL, asset);
+
+		return aToken.balanceOf(account);
+	}
+
+	function getBorrowBalance(bytes calldata params) external view returns (uint256) {
+		Currency asset;
+		address account;
+
+		assembly ("memory-safe") {
+			asset := calldataload(params.offset)
+			account := calldataload(add(params.offset, 0x20))
+		}
+
+		(, , , , , , , , , , Currency vdToken, , , , ) = getReserveData(LENDING_POOL, asset);
+
+		return vdToken.balanceOf(account);
+	}
+
+	function getPendingRewards(bytes calldata params) external view returns (uint256) {
+		Currency rewardAsset;
+		address account;
+
+		assembly ("memory-safe") {
+			rewardAsset := calldataload(params.offset)
+			account := calldataload(add(params.offset, 0x20))
+		}
+
+		return getPendingRewards(INCENTIVES, rewardAsset, account);
+	}
+
+	function getPendingRewards(
+		address incentives,
+		Currency rewardAsset,
+		address account
+	) internal view returns (uint256 accrued) {
+		assembly ("memory-safe") {
+			let ptr := mload(0x40)
+
+			mstore(ptr, 0xb022418c00000000000000000000000000000000000000000000000000000000) // getUserAccruedRewards(address,address)
+			mstore(add(ptr, 0x04), and(account, 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x24), and(rewardAsset, 0xffffffffffffffffffffffffffffffffffffffff))
+
+			if iszero(staticcall(gas(), incentives, ptr, 0x44, 0x00, 0x20)) {
+				returndatacopy(ptr, 0x00, returndatasize())
+				revert(ptr, returndatasize())
+			}
+
+			accrued := mload(0x00)
 		}
 	}
 
@@ -307,36 +394,30 @@ contract AaveV3Adapter is ILender, BaseLender {
 		reserveData.canBorrow = isBorrowAsset(configuration) && isActive;
 	}
 
-	function getPendingRewards(bytes calldata params) external view returns (uint256) {
-		return getPendingRewards(INCENTIVES, Currency.wrap(params.toAddress()));
+	function getReserveIndices(
+		bytes calldata params
+	) external view returns (uint256 supplyIndex, uint256 borrowIndex, uint256 lastAccrualTime) {
+		(, supplyIndex, , borrowIndex, , , lastAccrualTime, , , , , , , , ) = getReserveData(
+			LENDING_POOL,
+			Currency.wrap(params.toAddress())
+		);
 	}
 
-	function getPendingRewards(
-		address incentives,
-		Currency rewardAsset
-	) internal view returns (uint256 accrued) {
-		assembly ("memory-safe") {
-			let ptr := mload(0x40)
+	function getLtv(bytes calldata params) external view returns (uint256) {
+		return getValue(getConfiguration(LENDING_POOL, Currency.wrap(params.toAddress())), LTV_MASK, 0);
+	}
 
-			mstore(ptr, 0xb022418c00000000000000000000000000000000000000000000000000000000) // getUserAccruedRewards(address,address)
-			mstore(add(ptr, 0x04), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
-			mstore(add(ptr, 0x24), and(rewardAsset, 0xffffffffffffffffffffffffffffffffffffffff))
-
-			if iszero(staticcall(gas(), incentives, ptr, 0x44, 0x00, 0x20)) {
-				returndatacopy(ptr, 0x00, returndatasize())
-				revert(ptr, returndatasize())
-			}
-
-			accrued := mload(0x00)
-		}
+	function getAssetPrice(bytes calldata params) external view returns (uint256) {
+		return getAssetPrice(Currency.wrap(params.toAddress()));
 	}
 
 	function getMarketsIn(
 		address lendingPool,
 		address incentives,
-		bool shouldRewarded
+		bool shouldRewarded,
+		address account
 	) internal view returns (Currency[] memory markets) {
-		uint256 userConfig = getUserConfiguration(lendingPool);
+		uint256 userConfig = getUserConfiguration(lendingPool, account);
 
 		if (userConfig != 0) {
 			Currency[] memory reserves = getReservesList(lendingPool);
@@ -483,7 +564,8 @@ contract AaveV3Adapter is ILender, BaseLender {
 	}
 
 	function getUserAccountData(
-		address lendingPool
+		address lendingPool,
+		address account
 	)
 		internal
 		view
@@ -501,7 +583,7 @@ contract AaveV3Adapter is ILender, BaseLender {
 			let res := add(ptr, 0x24)
 
 			mstore(ptr, 0xbf92857c00000000000000000000000000000000000000000000000000000000)
-			mstore(add(ptr, 0x04), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x04), and(account, 0xffffffffffffffffffffffffffffffffffffffff))
 
 			if iszero(staticcall(gas(), lendingPool, ptr, 0x24, res, 0xc0)) {
 				returndatacopy(ptr, 0x00, returndatasize())
@@ -536,12 +618,15 @@ contract AaveV3Adapter is ILender, BaseLender {
 		}
 	}
 
-	function getUserConfiguration(address lendingPool) internal view returns (uint256 configuration) {
+	function getUserConfiguration(
+		address lendingPool,
+		address account
+	) internal view returns (uint256 configuration) {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
 			mstore(ptr, 0x4417a58300000000000000000000000000000000000000000000000000000000)
-			mstore(add(ptr, 0x04), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x04), and(account, 0xffffffffffffffffffffffffffffffffffffffff))
 
 			if iszero(staticcall(gas(), lendingPool, ptr, 0x24, 0x00, 0x20)) {
 				returndatacopy(ptr, 0x00, returndatasize())
@@ -743,13 +828,6 @@ contract AaveV3Adapter is ILender, BaseLender {
 				(thirdTerm / 6);
 
 			return compoundedInterest.rayMul(borrowIndex);
-		}
-	}
-
-	function decode(bytes calldata params) internal pure returns (Currency asset, uint256 amount) {
-		assembly ("memory-safe") {
-			asset := calldataload(params.offset)
-			amount := calldataload(add(params.offset, 0x20))
 		}
 	}
 }

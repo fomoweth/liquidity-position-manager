@@ -221,7 +221,7 @@ contract CompoundV2Adapter is ILender, BaseLender {
 
 		if (getCompAddress(comptroller).isZero()) revert Errors.NotSupported();
 
-		claimComp(comptroller, getMarketsIn(comptroller));
+		claimComp(comptroller, getMarketsIn(comptroller, address(this)));
 	}
 
 	function claimComp(address comptroller, Currency[] memory cTokens) internal virtual {
@@ -256,7 +256,9 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		}
 	}
 
-	function getAccountLiquidity()
+	function getAccountLiquidity(
+		bytes calldata params
+	)
 		external
 		view
 		returns (
@@ -268,10 +270,11 @@ contract CompoundV2Adapter is ILender, BaseLender {
 	{
 		address comptroller = COMPTROLLER;
 		address oracle = PRICE_ORACLE;
+		address account = params.toAddress();
 
 		uint256 ethPrice = getUnderlyingPrice(oracle, cETH, 18);
 
-		Currency[] memory cTokens = getMarketsIn(comptroller);
+		Currency[] memory cTokens = getMarketsIn(comptroller, account);
 
 		uint256 length = cTokens.length;
 		uint256 i;
@@ -279,7 +282,7 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		while (i < length) {
 			Currency cToken = cTokens[i];
 
-			(uint256 cTokenBalance, uint256 borrowBalance, ) = getAccountSnapshot(cToken);
+			(uint256 cTokenBalance, uint256 borrowBalance, ) = getAccountSnapshot(cToken, account);
 
 			uint8 unit = cTokenToUnderlying(cToken).decimals();
 
@@ -319,14 +322,42 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		}
 	}
 
-	function getReserveData(bytes calldata params) external view returns (ReserveData memory reserveData) {
-		address comptroller = COMPTROLLER;
-
+	function getSupplyBalance(bytes calldata params) external view returns (uint256) {
 		Currency cToken;
+		address account;
 
 		assembly ("memory-safe") {
 			cToken := calldataload(params.offset)
+			account := calldataload(add(params.offset, 0x20))
 		}
+
+		(uint256 exchangeRate, ) = accruedInterestIndices(cToken);
+
+		return cToken.balanceOf(account).wadMul(exchangeRate);
+	}
+
+	function getBorrowBalance(bytes calldata params) external view returns (uint256) {
+		Currency cToken;
+		address account;
+
+		assembly ("memory-safe") {
+			cToken := calldataload(params.offset)
+			account := calldataload(add(params.offset, 0x20))
+		}
+
+		(, uint256 borrowIndexNew) = accruedInterestIndices(cToken);
+
+		return borrowBalanceStored(cToken, account).mulDiv(borrowIndexNew, borrowIndex(cToken));
+	}
+
+	function getPendingRewards(bytes calldata params) external view returns (uint256) {
+		return getPendingRewards(COMPTROLLER, params.toAddress());
+	}
+
+	function getReserveData(bytes calldata params) external view returns (ReserveData memory reserveData) {
+		address comptroller = COMPTROLLER;
+
+		Currency cToken = Currency.wrap(params.toAddress());
 
 		uint256 ltv = getLtv(comptroller, cToken);
 
@@ -350,31 +381,50 @@ contract CompoundV2Adapter is ILender, BaseLender {
 			});
 	}
 
-	function getPendingRewards(bytes calldata) external view returns (uint256) {
-		return getPendingRewards(COMPTROLLER);
+	function getReserveIndices(bytes calldata params) external view returns (uint256, uint256, uint256) {
+		Currency cToken = Currency.wrap(params.toAddress());
+
+		(uint256 exchangeRate, uint256 index) = accruedInterestIndices(cToken);
+
+		return (exchangeRate, index, accrualBlockNumber(cToken));
 	}
 
-	function getPendingRewards(address comptroller) internal view virtual returns (uint256 pendingRewards) {
-		Currency[] memory cTokens = getMarketsIn(comptroller);
+	function getLtv(bytes calldata params) external view returns (uint256) {
+		return getLtv(COMPTROLLER, Currency.wrap(params.toAddress()));
+	}
+
+	function getAssetPrice(bytes calldata params) external view returns (uint256) {
+		return getAssetPrice(Currency.wrap(params.toAddress()));
+	}
+
+	function getPendingRewards(
+		address comptroller,
+		address account
+	) internal view virtual returns (uint256 pendingRewards) {
+		Currency[] memory cTokens = getMarketsIn(comptroller, account);
 		uint256 length = cTokens.length;
 		uint256 i;
 
 		if (length == 0) revert Errors.EmptyArray();
 
-		pendingRewards = compAccrued(comptroller);
+		pendingRewards = compAccrued(comptroller, account);
 
 		while (i < length) {
 			unchecked {
-				pendingRewards += (supplyAccrued(comptroller, cTokens[i]) +
-					borrowAccrued(comptroller, cTokens[i]));
+				pendingRewards += (supplyAccrued(comptroller, cTokens[i], account) +
+					borrowAccrued(comptroller, cTokens[i], account));
 
 				i = i + 1;
 			}
 		}
 	}
 
-	function supplyAccrued(address comptroller, Currency cToken) internal view returns (uint256 accrued) {
-		uint256 supplyBalance = cToken.balanceOfSelf();
+	function supplyAccrued(
+		address comptroller,
+		Currency cToken,
+		address account
+	) internal view returns (uint256 accrued) {
+		uint256 supplyBalance = cToken.balanceOf(account);
 
 		if (supplyBalance != 0) {
 			uint256 supplySpeed = compSupplySpeeds(comptroller, cToken);
@@ -396,7 +446,7 @@ contract CompoundV2Adapter is ILender, BaseLender {
 					supplyStateIndex += ratio;
 				}
 
-				uint256 supplierIndex = compSupplierIndex(comptroller, cToken);
+				uint256 supplierIndex = compSupplierIndex(comptroller, cToken, account);
 				if (supplierIndex == 0) supplierIndex = COMP_INITIAL_INDEX;
 
 				unchecked {
@@ -408,8 +458,12 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		}
 	}
 
-	function borrowAccrued(address comptroller, Currency cToken) internal view returns (uint256 accrued) {
-		uint256 borrowBalance = borrowBalanceStored(cToken);
+	function borrowAccrued(
+		address comptroller,
+		Currency cToken,
+		address account
+	) internal view returns (uint256 accrued) {
+		uint256 borrowBalance = borrowBalanceStored(cToken, account);
 
 		if (borrowBalance != 0) {
 			uint256 borrowSpeed = compBorrowSpeeds(comptroller, cToken);
@@ -435,7 +489,7 @@ contract CompoundV2Adapter is ILender, BaseLender {
 					borrowStateIndex += ratio;
 				}
 
-				uint256 borrowerIndex = compBorrowerIndex(comptroller, cToken);
+				uint256 borrowerIndex = compBorrowerIndex(comptroller, cToken, account);
 				if (borrowerIndex == 0) borrowerIndex = COMP_INITIAL_INDEX;
 
 				unchecked {
@@ -447,12 +501,12 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		}
 	}
 
-	function compAccrued(address comptroller) internal view returns (uint256 accrued) {
+	function compAccrued(address comptroller, address account) internal view returns (uint256 accrued) {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
 			mstore(ptr, 0xcc7ebdc400000000000000000000000000000000000000000000000000000000)
-			mstore(add(ptr, 0x04), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x04), and(account, 0xffffffffffffffffffffffffffffffffffffffff))
 
 			if iszero(staticcall(gas(), comptroller, ptr, 0x24, 0x00, 0x20)) {
 				returndatacopy(ptr, 0x00, returndatasize())
@@ -465,14 +519,15 @@ contract CompoundV2Adapter is ILender, BaseLender {
 
 	function compSupplierIndex(
 		address comptroller,
-		Currency cToken
+		Currency cToken,
+		address account
 	) internal view returns (uint256 supplierIndex) {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
 			mstore(ptr, 0xb21be7fd00000000000000000000000000000000000000000000000000000000)
 			mstore(add(ptr, 0x04), and(cToken, 0xffffffffffffffffffffffffffffffffffffffff))
-			mstore(add(ptr, 0x24), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x24), and(account, 0xffffffffffffffffffffffffffffffffffffffff))
 
 			if iszero(staticcall(gas(), comptroller, ptr, 0x44, 0x00, 0x20)) {
 				returndatacopy(ptr, 0x00, returndatasize())
@@ -524,14 +579,15 @@ contract CompoundV2Adapter is ILender, BaseLender {
 
 	function compBorrowerIndex(
 		address comptroller,
-		Currency cToken
+		Currency cToken,
+		address account
 	) internal view returns (uint256 borrowerIndex) {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
 			mstore(ptr, 0xca0af04300000000000000000000000000000000000000000000000000000000)
 			mstore(add(ptr, 0x04), and(cToken, 0xffffffffffffffffffffffffffffffffffffffff))
-			mstore(add(ptr, 0x24), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x24), and(account, 0xffffffffffffffffffffffffffffffffffffffff))
 
 			if iszero(staticcall(gas(), comptroller, ptr, 0x44, 0x00, 0x20)) {
 				returndatacopy(ptr, 0x00, returndatasize())
@@ -581,14 +637,14 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		}
 	}
 
-	function getMarketsIn(address comptroller) internal view returns (Currency[] memory) {
+	function getMarketsIn(address comptroller, address account) internal view returns (Currency[] memory) {
 		bytes memory returndata;
 
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
 			mstore(ptr, 0xabfceffc00000000000000000000000000000000000000000000000000000000) // getAssetsIn(address)
-			mstore(add(ptr, 0x04), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x04), and(account, 0xffffffffffffffffffffffffffffffffffffffff))
 
 			if iszero(staticcall(gas(), comptroller, ptr, 0x24, 0x00, 0x00)) {
 				returndatacopy(ptr, 0x00, returndatasize())
@@ -837,14 +893,15 @@ contract CompoundV2Adapter is ILender, BaseLender {
 	}
 
 	function getAccountSnapshot(
-		Currency cToken
+		Currency cToken,
+		address account
 	) internal view returns (uint256 cTokenBalance, uint256 borrowBalance, uint256 exchangeRate) {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 			let res := add(ptr, 0x24)
 
 			mstore(ptr, 0xc37f68e200000000000000000000000000000000000000000000000000000000)
-			mstore(add(ptr, 0x04), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x04), and(account, 0xffffffffffffffffffffffffffffffffffffffff))
 
 			if iszero(staticcall(gas(), cToken, ptr, 0x24, res, 0x80)) {
 				returndatacopy(ptr, 0x00, returndatasize())
@@ -903,12 +960,15 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		}
 	}
 
-	function borrowBalanceStored(Currency cToken) internal view returns (uint256 borrowBalance) {
+	function borrowBalanceStored(
+		Currency cToken,
+		address account
+	) internal view returns (uint256 borrowBalance) {
 		assembly ("memory-safe") {
 			let ptr := mload(0x40)
 
 			mstore(ptr, 0x95dd919300000000000000000000000000000000000000000000000000000000)
-			mstore(add(ptr, 0x04), and(address(), 0xffffffffffffffffffffffffffffffffffffffff))
+			mstore(add(ptr, 0x04), and(account, 0xffffffffffffffffffffffffffffffffffffffff))
 
 			if iszero(staticcall(gas(), cToken, ptr, 0x24, 0x00, 0x20)) {
 				returndatacopy(ptr, 0x00, returndatasize())
@@ -1065,15 +1125,5 @@ contract CompoundV2Adapter is ILender, BaseLender {
 		}
 
 		return ReserveError.NoError;
-	}
-
-	function decode(
-		bytes calldata params
-	) internal pure returns (Currency cToken, Currency asset, uint256 amount) {
-		assembly ("memory-safe") {
-			cToken := calldataload(params.offset)
-			asset := calldataload(add(params.offset, 0x20))
-			amount := calldataload(add(params.offset, 0x40))
-		}
 	}
 }
